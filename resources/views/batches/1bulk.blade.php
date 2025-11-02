@@ -1,14 +1,9 @@
 @extends('user_navbar')
 @section('content')
+
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
 <style>
-    .page-wrap {
-        display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 18px;
-    }
-
     .card {
         border-radius: .65rem;
         box-shadow: 0 6px 18px rgba(0, 0, 0, .06);
@@ -22,6 +17,11 @@
     .muted {
         color: #6b7280;
         font-size: .875rem;
+    }
+
+    .cursor-disabled {
+        pointer-events: none;
+        opacity: .6;
     }
 
     .overlay-blur {
@@ -43,20 +43,23 @@
         font-weight: 600;
     }
 
-    .cursor-disabled {
-        pointer-events: none;
-        opacity: .6;
+    /* Sticky bottom bar */
+    .action-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        background: #fff;
+        border-top: 1px solid #e5e7eb;
+        padding: 12px 16px;
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, .04);
+    }
+
+    .action-bar .summary {
+        font-weight: 600;
     }
 
     .table thead th {
         white-space: nowrap;
-    }
-
-    .sticky-actions {
-        position: sticky;
-        bottom: 0;
-        background: #fff;
-        padding-top: 10px;
     }
 </style>
 
@@ -66,26 +69,25 @@
         <div class="content-header row">
         </div>
 
-<div class="container-fluid">
-    <h3 class="mb-3">Bulk Add Batches</h3>
+        <div class="container-fluid">
 
-    {{-- Vendor --}}
-    <div class="card mb-3">
-        <div class="card-body">
-            <label class="mb-1">Vendor</label>
-            <select id="vendor_id" class="form-control">
-                <option value="">Select Vendor</option>
-                @foreach ($vendors as $v)
-                <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->mobile_no }})</option>
-                @endforeach
-            </select>
-            <div class="muted mt-1">Choose vendor to enable accessory selection.</div>
-        </div>
-    </div>
+            <h3 class="mb-3">Bulk Add Batches</h3>
 
-    <div class="page-wrap">
-        {{-- LEFT: Accessories list with search --}}
-        <div>
+            {{-- 1) Vendor --}}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <label class="mb-1">Vendor</label>
+                    <select id="vendor_id" class="form-control">
+                        <option value="">Select Vendor</option>
+                        @foreach ($vendors as $v)
+                        <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->mobile_no }})</option>
+                        @endforeach
+                    </select>
+                    <div class="muted mt-1">Choose vendor to enable accessory selection.</div>
+                </div>
+            </div>
+
+            {{-- 2) Accessories (stacked, with search) --}}
             <div class="card mb-3">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <span>Accessories</span>
@@ -121,14 +123,12 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="p-2 muted">Tip: use the search box to instantly filter.</div>
+                    <div class="p-2 muted">Click <em>Select</em> to add batch details via popup.</div>
                 </div>
             </div>
-        </div>
 
-        {{-- RIGHT: Selected batches + global pay amount + submit --}}
-        <div>
-            <div class="card mb-3">
+            {{-- 3) Selected Batches (stacked under accessories) --}}
+            <div class="card mb-0">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span>Selected Batches</span>
                     <div class="text-right">
@@ -162,79 +162,74 @@
                             </tfoot>
                         </table>
                     </div>
+                </div>
 
-                    <div class="p-3 sticky-actions d-flex align-items-center justify-content-between">
-                        <div style="max-width:260px;">
-                            <label class="mb-1">Pay Amount (for all batches)</label>
-                            <input type="number" id="payAmount" class="form-control" step="0.01" min="0" value="0">
-                            <div class="muted mt-1">Optional: amount paid now against this vendor bill.</div>
+                {{-- 4) Sticky bottom action bar: Pay Amount + Submit --}}
+                <div class="action-bar d-flex flex-wrap align-items-center justify-content-between">
+                    <div class="summary">
+                        <span class="mr-3">Items: <span id="itemsCountBar">0</span></span>
+                        <span>Grand Total: <span id="grandTotalBar">0.00</span></span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="mr-2">
+                            <label class="mb-1">Pay Amount (for all)</label>
+                            <input type="number" id="payAmount" class="form-control" step="0.01" min="0" value="0"
+                                style="min-width: 220px;">
                         </div>
-                        <div>
-                            <button id="submitAllBtn" class="btn btn-success" disabled>Submit All</button>
-                        </div>
+                        <button id="submitAllBtn" class="btn btn-success ml-2" disabled>Submit All</button>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div class="card">
-                <div class="card-body">
-                    <div class="muted">Workflow:</div>
-                    <ol class="mb-0 muted">
-                        <li>Select vendor.</li>
-                        <li>Search &amp; click <em>Select</em> for an accessory, fill popup, hit <em>Add</em>.</li>
-                        <li>Repeat for more accessories, set <em>Pay Amount</em>, then <em>Submit All</em>.</li>
-                    </ol>
+        {{-- Modal: Add details for a selected accessory --}}
+        <div class="modal fade" id="batchModal" tabindex="-1" role="dialog" aria-labelledby="batchModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Batch — <span id="modalAccessoryName"></span></h5>
+                        <button type="button" class="close" data-dismiss="modal"
+                            aria-label="Close"><span>&times;</span></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group mb-2">
+                            <label>Purchase Date</label>
+                            <input type="date" class="form-control" id="m_purchase_date"
+                                value="{{ now()->toDateString() }}">
+                        </div>
+                        <div class="form-group mb-2">
+                            <label>Description (Optional)</label>
+                            <input type="text" class="form-control" id="m_description" placeholder="Enter description">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-4">
+                                <label>Quantity Purchased</label>
+                                <input type="number" class="form-control" id="m_qty" min="1" value="1">
+                            </div>
+                            <div class="form-group col-4">
+                                <label>Purchase Price (per unit)</label>
+                                <input type="number" class="form-control" id="m_pprice" step="0.01" min="0" value="0"
+                                    required>
+                            </div>
+                            <div class="form-group col-4">
+                                <label>Selling Price (per unit)</label>
+                                <input type="number" class="form-control" id="m_sprice" step="0.01" min="0" value="0"
+                                    required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="modalAddBtn" type="button" class="btn btn-primary">Add</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+</div>
 
-{{-- Modal: Add single batch details --}}
-<div class="modal fade" id="batchModal" tabindex="-1" role="dialog" aria-labelledby="batchModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add Batch — <span id="modalAccessoryName"></span></h5>
-                <button type="button" class="close" data-dismiss="modal"
-                    aria-label="Close"><span>&times;</span></button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group mb-2">
-                    <label>Purchase Date</label>
-                    <input type="date" class="form-control" id="m_purchase_date" value="{{ now()->toDateString() }}">
-                </div>
-                <div class="form-group mb-2">
-                    <label>Description (Optional)</label>
-                    <input type="text" class="form-control" id="m_description" placeholder="Enter description">
-                </div>
-                <div class="form-row">
-                    <div class="form-group col-4">
-                        <label>Quantity Purchased</label>
-                        <input type="number" class="form-control" id="m_qty" min="1" value="1">
-                    </div>
-                    <div class="form-group col-4">
-                        <label>Purchase Price (per unit)</label>
-                        <input type="number" class="form-control" id="m_pprice" step="0.01" min="0" value="0">
-                    </div>
-                    <div class="form-group col-4">
-                        <label>Selling Price (per unit)</label>
-                        <input type="number" class="form-control" id="m_sprice" step="0.01" min="0" value="0">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="modalAddBtn" type="button" class="btn btn-primary">Add</button>
-            </div>
-        </div>
-    </div>
-</div>
-</div>
-</div>
-</div>
-    
-    {{-- Blur overlay --}}
+{{-- Blur overlay --}}
 <div class="overlay-blur" id="overlay">
     <div class="box">
         <div class="spinner-border mr-2" role="status" aria-hidden="true"></div>
@@ -246,17 +241,25 @@
 
 <script>
     (function() {
+
+       
+
   const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   const vendorSel = document.getElementById('vendor_id');
   const accBody   = document.getElementById('accessoriesBody');
   const searchBox = document.getElementById('searchBox');
   const overlay   = document.getElementById('overlay');
-  const selTable  = document.querySelector('#selectedTable tbody');
-  const submitBtn = document.getElementById('submitAllBtn');
-  const itemsCount= document.getElementById('itemsCount');
-  const gTotalTop = document.getElementById('grandTotal');
-  const gTotalFoot= document.getElementById('grandTotalFoot');
-  const payAmount = document.getElementById('payAmount');
+
+  const selTable   = document.querySelector('#selectedTable tbody');
+  const submitBtn  = document.getElementById('submitAllBtn');
+  const itemsCount = document.getElementById('itemsCount');
+  const gTotalTop  = document.getElementById('grandTotal');
+  const gTotalFoot = document.getElementById('grandTotalFoot');
+
+  // Sticky bar mirrors
+  const itemsCountBar = document.getElementById('itemsCountBar');
+  const gTotalBar     = document.getElementById('grandTotalBar');
+  const payAmount     = document.getElementById('payAmount');
 
   // Modal elements
   const modalName   = document.getElementById('modalAccessoryName');
@@ -275,9 +278,14 @@
   function recalc() {
     let total = 0;
     cart.forEach(i => total += (i.qty_purchased * i.purchase_price));
-    gTotalTop.textContent  = fmt(total);
-    gTotalFoot.textContent = fmt(total);
-    itemsCount.textContent = cart.length;
+    const totalFmt = fmt(total);
+    gTotalTop.textContent  = totalFmt;
+    gTotalFoot.textContent = totalFmt;
+    gTotalBar.textContent  = totalFmt;
+
+    itemsCount.textContent   = cart.length;
+    itemsCountBar.textContent= cart.length;
+
     submitBtn.disabled = !(vendorSel.value && cart.length > 0);
   }
 
@@ -303,7 +311,7 @@
     recalc();
   }
 
-  // Enable/disable accessories table on vendor choose
+  // Enable accessories once vendor is chosen
   vendorSel.addEventListener('change', () => {
     const enabled = !!vendorSel.value;
     accBody.classList.toggle('cursor-disabled', !enabled);
@@ -311,7 +319,7 @@
     recalc();
   });
 
-  // Search filter (by name/company/group)
+  // Instant search
   searchBox.addEventListener('input', () => {
     const q = searchBox.value.trim().toLowerCase();
     accBody.querySelectorAll('tr').forEach(tr => {
@@ -374,10 +382,10 @@
     redraw();
   });
 
-  // Submit all
+  // Submit all (same endpoint)
   submitBtn.addEventListener('click', async () => {
     if(!vendorSel.value || cart.length === 0) return;
-    const pay = +payAmount.value || 0;
+
     overlay.style.display = 'flex';
     submitBtn.disabled = true;
 
@@ -391,15 +399,19 @@
         },
         body: JSON.stringify({
           vendor_id: vendorSel.value,
-          pay_amount: pay,
+          pay_amount: +payAmount.value || 0,
           items: cart
         })
       });
 
-      if(!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Request failed');
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 422) {
+        const errs = data.errors || {};
+        const msg = Object.keys(errs).map(k => `${k}: ${errs[k].join(', ')}`).join('\n');
+        throw new Error(msg || 'Validation failed.');
       }
+      if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
 
       // Reset UI
       cart = [];
@@ -421,4 +433,7 @@
   });
 
 })();
+
 </script>
+
+@endsection

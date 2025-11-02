@@ -201,4 +201,16 @@ Route::get('/batches/bulk', [AccessoryBatchController::class, 'bulkCreate'])
 
 Route::post('/batches/bulk', [AccessoryBatchController::class, 'bulkStore'])
     ->name('batches.bulk.store');
-
+    
+Route::get('/vendors/search', function (\Illuminate\Http\Request $request) {
+    $q = trim($request->get('q', ''));
+    return \App\Models\vendor::query()
+        ->when($q !== '', function($qq) use ($q) {
+            $qq->where('name', 'like', "%{$q}%")
+               ->orWhere('mobile_no', 'like', "%{$q}%");
+        })
+        ->orderBy('name')
+        ->limit(20)
+        ->get()
+        ->map(fn($v) => ['id' => $v->id, 'text' => $v->name.' ('.$v->mobile_no.')']);
+})->name('vendors.search');

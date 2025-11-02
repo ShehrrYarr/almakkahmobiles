@@ -208,11 +208,11 @@
                     </div>
                     <div class="form-group col-4">
                         <label>Purchase Price (per unit)</label>
-                        <input type="number" class="form-control" id="m_pprice" step="0.01" min="0" value="0">
+                        <input type="number" class="form-control" id="m_pprice" step="0.01" min="0" value="0" required>
                     </div>
                     <div class="form-group col-4">
                         <label>Selling Price (per unit)</label>
-                        <input type="number" class="form-control" id="m_sprice" step="0.01" min="0" value="0">
+                        <input type="number" class="form-control" id="m_sprice" step="0.01" min="0" value="0" required>
                     </div>
                 </div>
             </div>
@@ -237,58 +237,74 @@
 
 
 <script>
-    $(document).ready(function () {
-    $('#vendor_id').select2({
-    placeholder: "Select a vendor",
+    (function () {
+  // --- Select2 (AJAX) for Vendor ---
+  $('#vendor_id').select2({
+    theme: 'bootstrap4',
+    width: '100%',
+    placeholder: 'Search vendor…',
     allowClear: true,
-    width: '100%'
-    });
-    });
+    ajax: {
+      url: '{{ route('vendors.search') }}',
+      dataType: 'json',
+      delay: 200,
+      data: params => ({ q: params.term || '' }),
+      processResults: data => ({ results: data }),
+      cache: true
+    },
+    minimumInputLength: 1
+  });
 
-    (function() {
-  const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-  const vendorSel = document.getElementById('vendor_id');
-  const accBody   = document.getElementById('accessoriesBody');
-  const searchBox = document.getElementById('searchBox');
-  const overlay   = document.getElementById('overlay');
-
-  const selTable   = document.querySelector('#selectedTable tbody');
-  const submitBtn  = document.getElementById('submitAllBtn');
-  const itemsCount = document.getElementById('itemsCount');
-  const gTotalTop  = document.getElementById('grandTotal');
-  const gTotalFoot = document.getElementById('grandTotalFoot');
-
-  // Sticky bar mirrors
+  // --- DOM refs ---
+  const csrf          = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const accBody       = document.getElementById('accessoriesBody');
+  const searchBox     = document.getElementById('searchBox');
+  const overlay       = document.getElementById('overlay');
+  const selTable      = document.querySelector('#selectedTable tbody');
+  const submitBtn     = document.getElementById('submitAllBtn');
+  const itemsCount    = document.getElementById('itemsCount');
+  const gTotalTop     = document.getElementById('grandTotal');
+  const gTotalFoot    = document.getElementById('grandTotalFoot');
   const itemsCountBar = document.getElementById('itemsCountBar');
   const gTotalBar     = document.getElementById('grandTotalBar');
   const payAmount     = document.getElementById('payAmount');
 
-  // Modal elements
-  const modalName   = document.getElementById('modalAccessoryName');
-  const m_date      = document.getElementById('m_purchase_date');
-  const m_desc      = document.getElementById('m_description');
-  const m_qty       = document.getElementById('m_qty');
-  const m_pprice    = document.getElementById('m_pprice');
-  const m_sprice    = document.getElementById('m_sprice');
-  const m_addBtn    = document.getElementById('modalAddBtn');
+  // Modal refs
+  const modalName = document.getElementById('modalAccessoryName');
+  const m_date    = document.getElementById('m_purchase_date');
+  const m_desc    = document.getElementById('m_description');
+  const m_qty     = document.getElementById('m_qty');
+  const m_pprice  = document.getElementById('m_pprice');
+  const m_sprice  = document.getElementById('m_sprice');
+  const m_addBtn  = document.getElementById('modalAddBtn');
 
+  // --- State ---
   let cart = []; // {accessory_id, accessory_name, qty_purchased, purchase_price, selling_price, purchase_date, description}
   let currentAccessory = { id: null, name: '' };
 
+  // --- Helpers ---
   function fmt(n){ return (Math.round((+n + Number.EPSILON) * 100)/100).toFixed(2); }
+
+  function enableAccessoriesUI(enabled) {
+    accBody.classList.toggle('cursor-disabled', !enabled);
+    accBody.closest('table')?.classList.remove('cursor-disabled');
+    document.querySelectorAll('.selectAccessory').forEach(btn => btn.disabled = !enabled);
+    recalc();
+  }
 
   function recalc() {
     let total = 0;
     cart.forEach(i => total += (i.qty_purchased * i.purchase_price));
     const totalFmt = fmt(total);
+
     gTotalTop.textContent  = totalFmt;
     gTotalFoot.textContent = totalFmt;
     gTotalBar.textContent  = totalFmt;
+    itemsCount.textContent = cart.length;
+    itemsCountBar.textContent = cart.length;
 
-    itemsCount.textContent   = cart.length;
-    itemsCountBar.textContent= cart.length;
-
-    submitBtn.disabled = !(vendorSel.value && cart.length > 0);
+    const vendorChosen = !!$('#vendor_id').val();
+    submitBtn.disabled = !(vendorChosen && cart.length > 0);
   }
 
   function redraw() {
@@ -296,7 +312,6 @@
     cart.forEach((row, idx) => {
       const tr = document.createElement('tr');
       const lineTotal = row.qty_purchased * row.purchase_price;
-
       tr.innerHTML = `
         <td>${idx+1}</td>
         <td>${row.accessory_name}</td>
@@ -313,15 +328,31 @@
     recalc();
   }
 
-  // Enable accessories once vendor is chosen
-  vendorSel.addEventListener('change', () => {
-    const enabled = !!vendorSel.value;
-    accBody.classList.toggle('cursor-disabled', !enabled);
-    document.querySelectorAll('.selectAccessory').forEach(btn => btn.disabled = !enabled);
-    recalc();
-  });
+  // Strict number-required validator (empty NOT allowed; zero allowed)
+  function parseRequiredNonNegativeNumber(inputEl, label) {
+    const raw = (inputEl.value ?? '').trim();
+    if (raw === '') {
+      throw new Error(`${label} is required.`);
+    }
+    const num = Number(raw);
+    if (Number.isNaN(num)) {
+      throw new Error(`${label} must be a number.`);
+    }
+    if (num < 0) {
+      throw new Error(`${label} cannot be negative.`);
+    }
+    return num;
+  }
 
-  // Instant search
+  // --- Vendor change handlers (Select2 safe) ---
+  $('#vendor_id')
+    .on('change', function () { enableAccessoriesUI( !!$(this).val() ); })
+    .on('select2:select', function () { enableAccessoriesUI( !!$(this).val() ); })
+    .on('select2:clear', function () { enableAccessoriesUI(false); });
+
+  enableAccessoriesUI( !!$('#vendor_id').val() );
+
+  // --- Instant search ---
   searchBox.addEventListener('input', () => {
     const q = searchBox.value.trim().toLowerCase();
     accBody.querySelectorAll('tr').forEach(tr => {
@@ -330,53 +361,74 @@
     });
   });
 
-  // Select accessory → open modal
+  // --- Accessory: open modal on Select ---
   accBody.addEventListener('click', (e) => {
     if(!e.target.classList.contains('selectAccessory')) return;
-    if(!vendorSel.value) { alert('Select a vendor first.'); return; }
+
+    if (!$('#vendor_id').val()) {
+      alert('Select a vendor first.');
+      return;
+    }
 
     const tr = e.target.closest('tr');
     currentAccessory.id   = +tr.getAttribute('data-accessory-id');
     currentAccessory.name = tr.querySelector('td').textContent.trim();
 
-    // reset modal fields
+    // Reset modal fields; prices blank so they MUST type something
     modalName.textContent = currentAccessory.name;
     m_date.value  = "{{ now()->toDateString() }}";
     m_desc.value  = '';
     m_qty.value   = 1;
-    m_pprice.value= 0;
-    m_sprice.value= 0;
+    m_pprice.value= '';  // required
+    m_sprice.value= '';  // required
 
     $('#batchModal').modal('show');
   });
 
-  // Modal Add → push to cart
-  m_addBtn.addEventListener('click', () => {
-    const qty   = +m_qty.value || 0;
-    const pp    = +m_pprice.value || 0;
-    const sp    = +m_sprice.value || 0;
-    const pdate = m_date.value;
-    const desc  = m_desc.value || null;
-
-    if(qty < 1) { alert('Quantity must be at least 1.'); return; }
-    if(pp < 0 || sp < 0) { alert('Prices cannot be negative.'); return; }
-    if(!pdate) { alert('Purchase date is required.'); return; }
-
-    cart.push({
-      accessory_id: currentAccessory.id,
-      accessory_name: currentAccessory.name,
-      qty_purchased: qty,
-      purchase_price: pp,
-      selling_price: sp,
-      purchase_date: pdate,
-      description: desc
+  // Allow Enter key in modal to trigger Add
+  [m_date, m_desc, m_qty, m_pprice, m_sprice].forEach(el => {
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        m_addBtn.click();
+      }
     });
-
-    $('#batchModal').modal('hide');
-    redraw();
   });
 
-  // Remove selected line
+  // --- Modal Add → push to cart ---
+  m_addBtn.addEventListener('click', () => {
+    try {
+      const qty = (() => {
+        const q = Number((m_qty.value ?? '').trim() || '0');
+        if (!Number.isInteger(q) || q < 1) throw new Error('Quantity must be an integer ≥ 1.');
+        return q;
+      })();
+
+      const pp = parseRequiredNonNegativeNumber(m_pprice, 'Purchase Price (per unit)');
+      const sp = parseRequiredNonNegativeNumber(m_sprice, 'Selling Price (per unit)');
+      const pdate = (m_date.value ?? '').trim();
+      if (!pdate) throw new Error('Purchase Date is required.');
+
+      const desc = (m_desc.value ?? '').trim() || null;
+
+      cart.push({
+        accessory_id: currentAccessory.id,
+        accessory_name: currentAccessory.name,
+        qty_purchased: qty,
+        purchase_price: pp,
+        selling_price: sp,
+        purchase_date: pdate,
+        description: desc
+      });
+
+      $('#batchModal').modal('hide');
+      redraw();
+    } catch (err) {
+      alert(err.message || 'Please fill all required fields correctly.');
+    }
+  });
+
+  // --- Remove selected line ---
   document.getElementById('selectedTable').addEventListener('click', (e) => {
     if(!e.target.classList.contains('removeRow')) return;
     const idx = +e.target.getAttribute('data-index');
@@ -384,9 +436,10 @@
     redraw();
   });
 
-  // Submit all (same endpoint)
+  // --- Submit All ---
   submitBtn.addEventListener('click', async () => {
-    if(!vendorSel.value || cart.length === 0) return;
+    const vendorId = $('#vendor_id').val();
+    if(!vendorId || cart.length === 0) return;
 
     overlay.style.display = 'flex';
     submitBtn.disabled = true;
@@ -400,8 +453,8 @@
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          vendor_id: vendorSel.value,
-          pay_amount: +payAmount.value || 0,
+          vendor_id: vendorId,
+          pay_amount: Number(payAmount.value || 0),
           items: cart
         })
       });
@@ -419,9 +472,7 @@
       cart = [];
       payAmount.value = 0;
       redraw();
-      vendorSel.value = '';
-      accBody.classList.add('cursor-disabled');
-      document.querySelectorAll('.selectAccessory').forEach(btn => btn.disabled = true);
+      $('#vendor_id').val(null).trigger('change');
       searchBox.value = '';
 
       alert('Batches stored successfully.');
@@ -433,8 +484,8 @@
       submitBtn.disabled = false;
     }
   });
-
 })();
-
 </script>
+
+
 @endsection
