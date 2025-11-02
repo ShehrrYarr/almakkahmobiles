@@ -77,7 +77,7 @@
     <div class="card mb-3">
         <div class="card-body">
             <label class="mb-1">Vendor</label>
-            <select id="vendor_id" class="form-control">
+            <select id="vendor_id"  class="form-control">
                 <option value="">Select Vendor</option>
                 @foreach ($vendors as $v)
                 <option value="{{ $v->id }}">{{ $v->name }} ({{ $v->mobile_no }})</option>
@@ -237,6 +237,14 @@
 
 
 <script>
+    $(document).ready(function () {
+    $('#vendor_id').select2({
+    placeholder: "Select a vendor",
+    allowClear: true,
+    width: '100%'
+    });
+    });
+
     (function() {
   const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
   const vendorSel = document.getElementById('vendor_id');
@@ -427,5 +435,6 @@
   });
 
 })();
+
 </script>
 @endsection
