@@ -204,7 +204,7 @@
             <button type="button" class="btn btn-primary ml-1" data-toggle="modal" data-target="#exampleModal">
                 <i class="bi bi-plus"></i> Add Batch
             </button>
-            <a type="button" class="btn btn-primary ml-1" href="{{route('batches.bulk')}}" >
+            <a type="button" class="btn btn-primary ml-1" href="/batches/bulk" >
                 <i class="bi bi-plus"></i> Bulk Add Batches 
             </a>
 
