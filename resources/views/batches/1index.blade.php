@@ -195,8 +195,8 @@
             <button type="button" class="btn btn-primary ml-1" data-toggle="modal" data-target="#exampleModal">
                 <i class="bi bi-plus"></i> Add Batch
             </button>
-            <a type="button" class="btn btn-primary ml-1" href="/batches/bulk" >
-                <i class="bi bi-plus"></i> Bulk Add Batches 
+            <a type="button" class="btn btn-primary ml-1" href="/batches/bulk">
+                <i class="bi bi-plus"></i> Bulk Add Batches
             </a>
 
             <div class="col-xxl-12 col-xl-12 col-lg-12 col-md-12 col-12 latest-update-tracking mt-1 ">
@@ -266,193 +266,178 @@
 
 
 <script>
-  // ===== Qty × Purchase Price => Pay Amount (single add modal) =====
-  const qtyInput = document.getElementById('qty_purchased');
-  const priceInput = document.getElementById('purchase_price');
-  const payAmountInput = document.getElementById('pay_amount');
-
-  function calculatePayAmount() {
-    const qty   = Number(qtyInput?.value || 0);
-    const price = Number(priceInput?.value || 0);
+    const qtyInput = document.getElementById('qty_purchased');
+    const priceInput = document.getElementById('purchase_price');
+    const payAmountInput = document.getElementById('pay_amount');
+    
+    function calculatePayAmount() {
+    // Get the current values
+    const qty = parseFloat(qtyInput.value) || 0;
+    const price = parseFloat(priceInput.value) || 0;
+    // Calculate
     const total = qty * price;
-    if (!isFinite(total)) return;
-    payAmountInput.value = total.toFixed(2);
-  }
-
-  if (qtyInput && priceInput && payAmountInput) {
+    // Write result to Pay Amount field (2 decimal places)
+    payAmountInput.value = total ? total.toFixed(2) : '';
+    }
+    
+    // Attach event listeners
     qtyInput.addEventListener('input', calculatePayAmount);
-    priceInput.addEventListener('input', calculatePayAmount);
-  }
+    priceInput.addEventListener('input', calculatePayAmount); 
 
-  // ===== DataTable (batches list) =====
-  $(document).ready(function () {
-    $('#accessoryTable').DataTable({ order: [[0, 'desc']] });
-  });
 
-  // ===== Select2 for Add Batch modal selects =====
-  $(document).ready(function () {
-    $('#vendorSelect1').select2({
-      placeholder: "Select a vendor",
-      allowClear: true,
-      width: '100%'
-    });
-    $('#accessorySelect1').select2({
-      placeholder: "Select an Accessory",
-      allowClear: true,
-      width: '100%'
-    });
-  });
+    
+    $(document).ready(function () {
+        $('#accessoryTable').DataTable({
+        order: [
+        [0, 'desc']
+        ]
+        });
+        });
 
-  // ===== Barcode Modal helpers =====
-  function hideBarcodeModal() {
-    document.getElementById('barcode-modal').style.display = 'none';
-  }
+        $(document).ready(function () {
+        $('#vendorSelect1').select2({
+        placeholder: "Select a vendor",
+        allowClear: true,
+        width: '100%' 
+        });
+        });
 
-  // Build modal content safely (no raw innerHTML with untrusted strings)
-  async function showBarcodeAjax(batchId) {
-    try {
-      const res = await fetch(`/batches/${batchId}/barcode`, { headers: { 'Accept': 'application/json' }});
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to fetch barcode info');
-      }
+        $(document).ready(function () {
+        $('#accessorySelect1').select2({
+        placeholder: "Select a Accessory",
+        allowClear: true,
+        width: '100%' 
+        });
+        });
 
-      // Expect data.batch like:
-      // { barcode, accessory, vendor, qty_purchased, qty_remaining, purchase_price, selling_price, purchase_date }
-      const batch = data.batch || {};
-      // Accessory name might be in "accessory" or "accessory_name" depending on your API
-      const accessoryName = (batch.accessory ?? batch.accessory_name ?? '').toString();
-
-      const c = document.getElementById('barcode-modal-content');
-      c.textContent = ''; // clear
-
-      const h = document.createElement('h4');
-      h.textContent = `Batch Barcode (${batch.barcode ?? ''})`;
-
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('id', 'barcode-svg');
-
-      const fields = [
-        ['Accessory', accessoryName],
-        ['Vendor', batch.vendor ?? ''],
-        ['Qty Purchased', batch.qty_purchased ?? ''],
-        ['Qty Remaining', batch.qty_remaining ?? ''],
-        ['Purchase Price', batch.purchase_price ?? ''],
-        ['Purchase Date', batch.purchase_date ?? ''],
-      ];
-
-      c.appendChild(h);
-      c.appendChild(svg);
-      for (const [label, value] of fields) {
-        const p = document.createElement('p');
-        const strong = document.createElement('strong');
-        strong.textContent = `${label}: `;
-        p.appendChild(strong);
-        p.appendChild(document.createTextNode(String(value)));
-        c.appendChild(p);
-      }
-
-      // Save values for printing
-      const modalEl = document.getElementById('barcode-modal');
-      modalEl.dataset.batchBarcode = String(batch.barcode ?? '');
-      modalEl.dataset.accessoryName = accessoryName;
-
-      // Show modal
-      document.getElementById('barcode-modal').style.display = 'block';
-
-      // Render barcode
-      JsBarcode("#barcode-svg", String(batch.barcode ?? ''), {
+     function showBarcodeAjax(batchId) {
+        fetch('/batches/' + batchId + '/barcode')
+        .then(response => response.json())
+        .then(data => {
+        if (data.success) {
+        document.getElementById('barcode-modal-content').innerHTML = `
+        <h4>Batch Barcode (${data.batch.barcode})</h4>
+        <svg id="barcode-svg"></svg>
+        <p><strong>Accessory:</strong> ${data.batch.accessory}</p>
+        <p><strong>Vendor:</strong> ${data.batch.vendor}</p>
+        <p><strong>Qty Purchased:</strong> ${data.batch.qty_purchased}</p>
+        <p><strong>Qty Remaining:</strong> ${data.batch.qty_remaining}</p>
+        <p><strong>Purchase Price:</strong> ${data.batch.purchase_price}</p>
+        <p><strong>Selling Price:</strong> ${data.batch.selling_price}</p>
+        <p><strong>Purchase Date:</strong> ${data.batch.purchase_date}</p>
+        `;
+        document.getElementById('barcode-modal').style.display = 'block';
+        
+        // THIS IS THE KEY LINE:
+        JsBarcode("#barcode-svg", data.batch.barcode, {
         format: "CODE128",
         lineColor: "#000",
         width: 2,
         height: 40,
         displayValue: false
-      });
-
-    } catch (err) {
-      console.error(err);
-      alert(err.message || 'Could not fetch barcode info!');
-    }
-  }
-
-  // Print: Barcode + Batch Number + Accessory Name (no price)
-  function printBarcodeModal(labelCount = 1) {
-    const modalEl = document.getElementById('barcode-modal');
-    let batchNumber   = modalEl?.dataset?.batchBarcode || '';
-    let accessoryName = modalEl?.dataset?.accessoryName || '';
-
-    // Fallback: read from modal text if dataset missing
-    if (!accessoryName) {
-      const p = Array.from(document.querySelectorAll('#barcode-modal-content p'))
-        .find(el => el.textContent.trim().startsWith('Accessory:'));
-      if (p) accessoryName = p.textContent.replace(/^Accessory:\s*/i, '').trim();
-    }
-
-    const esc = (s) => String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-    const safeBatch = esc(batchNumber);
-    const safeName  = esc(accessoryName);
-
-    const win = window.open('', '', 'width=900,height=700');
-    win.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=50mm, height=25mm, initial-scale=1.0">
-  <title>Print Barcodes</title>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
-  <style>
-    @page { size: 50mm 25mm; margin: 0; }
-    html, body { width: 50mm; height: 25mm; margin: 0; padding: 0; }
-    .barcode-box {
-      width: 50mm; height: 25mm; page-break-after: always;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
-    }
-    .barcode-box svg { width: 120px !important; height: 45px !important; display:block; }
-    .barcode-label { font-size: 4.5mm; font-weight: 600; margin-top: 1mm; }   /* batch number */
-    .barcode-name  { font-size: 3.6mm; font-weight: 500; margin-top: 1mm; line-height: 1.05; max-width: 46mm;
-                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  </style>
-</head>
-<body>
-  ${Array.from({ length: labelCount }).map((_, i) => `
-    <div class="barcode-box">
-      <svg id="barcode_${i}"></svg>
-      <div class="barcode-label">${safeBatch}</div>
-      <div class="barcode-name">${safeName}</div>
-    </div>
-  `).join('')}
-  <script>
-    window.onload = function() {
-      for (let i = 0; i < ${labelCount}; i++) {
-        JsBarcode("#barcode_" + i, "${batchNumber}", {
-          format: "CODE128",
-          width: 2,
-          height: 40,
-          displayValue: false
         });
-      }
-      setTimeout(() => window.print(), 300);
-    };
-  <\/script>
-</body>
-</html>`);
-    win.document.close();
-  }
+        } else {
+        alert('Could not fetch barcode info!');
+        }
+        });
+        }
+        
+        
+        
 
-  // ===== Optional: auto-hide flash messages =====
-  setTimeout(() => document.getElementById('successMessage')?.remove(), 4000);
-  setTimeout(() => document.getElementById('dangerMessage')?.remove(), 6000);
+        function hideBarcodeModal() {
+        document.getElementById('barcode-modal').style.display = 'none';
+        }
 
-  // Expose functions used by buttons
-  window.showBarcodeAjax = showBarcodeAjax;
-  window.hideBarcodeModal = hideBarcodeModal;
-  window.printBarcodeModal = printBarcodeModal;
+    
+    function printBarcodeModal(labelCount = 1) {
+    // 1. Get batch number
+    let match = document
+    .querySelector('#barcode-modal-content h4')
+    .textContent.match(/\((\d+)\)/);
+    const batchNumber = match ? match[1] : '';
+    
+    // 2. Get selling price from the modal
+    // This assumes you always render selling price in a <p><strong>Selling Price:</strong> ...</p>
+    let sellingPriceText = '';
+    let sellingPriceElem = Array.from(document.querySelectorAll('#barcode-modal-content p'))
+    .find(el => el.textContent.includes('Selling Price:'));
+    if (sellingPriceElem) {
+    // Extract just the numeric value
+    sellingPriceText = sellingPriceElem.textContent.replace('Selling Price:', '').trim();
+    }
+    
+    // 3. Open print window
+    const win = window.open('', '', 'width=900,height=700');
+    
+    // 4. Write HTML + CSS (add price below batch number)
+    win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    
+    <head>
+        <meta name="viewport" content="width=50mm, height=25mm, initial-scale=1.0">
+        <title>Print Barcodes</title>
+        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js">
+            <\/script>
+          <style>
+            @page { size: 50mm 25mm; margin: 0; }
+            html, body { width: 50mm; height: 25mm; margin: 0; padding: 0; }
+            .barcode-box {
+              width: 50mm;
+              height: 25mm;
+              page-break-after: always;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+            }
+            .barcode-box svg {
+              width: 120px !important;
+              height: 45px !important;
+              display: block;
+            }
+            .barcode-label {
+              font-size: 4.5mm;
+              font-weight: 600;
+              margin-top: 1mm;
+            }
+            .barcode-price {
+              font-size: 4mm;
+              font-weight: bold;
+              color: #111;
+              margin-top: 1mm;
+            }
+          </style>
+        </head>
+        <body>
+          ${Array.from({ length: labelCount }).map((_, i) => `
+            <div class="barcode-box">
+              <svg id="barcode_${i}"></svg>
+              <div class="barcode-label">${batchNumber}</div>
+              <div class="barcode-price">${sellingPriceText ? 'Rs. ' + sellingPriceText : ''}</div>
+            </div>
+          `).join('')}
+          <script>
+            window.onload = function() {
+              for (let i = 0; i < ${labelCount}; i++) {
+                JsBarcode("#barcode_" + i, "${batchNumber}", {
+                  format: "CODE128",
+                  width: 2,
+                  height: 40,
+                  displayValue: false
+                });
+              }
+              setTimeout(() => window.print(), 300);
+            };
+          <\/script>
+        </body>
+        </html>`);
+        win.document.close();
+    }
+
+       
 </script>
-
 
 @endsection
