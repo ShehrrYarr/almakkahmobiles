@@ -11,6 +11,10 @@ use App\Models\MasterPassword;
 use App\Models\vendor;
 use App\Models\Accessory;
 use App\Models\Accounts;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+
 
 
 
@@ -20,6 +24,18 @@ class AccessoryBatchController extends Controller
     {
         $this->middleware('auth');
     }
+
+  public function bulkCreate()
+    {
+        $vendors = Vendor::orderBy('name')->get(['id','name','mobile_no']);
+        $accessories = Accessory::with(['company:id,name','group:id,name'])
+            ->orderBy('name')
+            ->get(['id','name','company_id','group_id','min_qty']);
+
+        return view('batches.bulk', compact('vendors', 'accessories'));
+    }
+    
+
 
    public function index(Request $request)
 {
@@ -167,7 +183,96 @@ class AccessoryBatchController extends Controller
     ]);
 }
 
-    
+  
+
+    public function bulkStore(Request $request)
+    {
+        $request->validate([
+            'vendor_id'               => 'required|exists:vendors,id',
+            'pay_amount'              => 'nullable|numeric|min:0',
+            'items'                   => 'required|array|min:1',
+            'items.*.accessory_id'    => 'required|exists:accessories,id',
+            'items.*.qty_purchased'   => 'required|integer|min:1',
+            'items.*.purchase_price'  => 'required|numeric|min:0',
+            'items.*.selling_price'   => 'required|numeric|min:0',
+            'items.*.purchase_date'   => 'required|date',
+            'items.*.description'     => 'nullable|string',
+        ]);
+
+        $vendorId   = (int) $request->vendor_id;
+        $userId     = auth()->id();
+        $items      = $request->items;
+        $payAmount  = (float) ($request->pay_amount ?? 0);
+
+        DB::beginTransaction();
+        try {
+            $totalCredit = 0;
+            $batchCodes  = [];
+
+            foreach ($items as $row) {
+                $data = [
+                    'accessory_id'   => (int) $row['accessory_id'],
+                    'vendor_id'      => $vendorId,
+                    'qty_purchased'  => (int) $row['qty_purchased'],
+                    'qty_remaining'  => (int) $row['qty_purchased'],
+                    'purchase_price' => (float) $row['purchase_price'],
+                    'selling_price'  => (float) $row['selling_price'],
+                    'purchase_date'  => $row['purchase_date'],
+                    'description'    => $row['description'] ?? null,
+                    'user_id'        => $userId,
+                    'barcode'        => (string) Str::uuid(), // temp
+                ];
+
+                /** @var AccessoryBatch $batch */
+                $batch = AccessoryBatch::create($data);
+                $batch->barcode = str_pad($batch->id, 5, '0', STR_PAD_LEFT);
+                $batch->save();
+
+                $lineTotal   = $data['qty_purchased'] * $data['purchase_price'];
+                $totalCredit += $lineTotal;
+                $batchCodes[] = $batch->barcode;
+
+                // Credit (you owe vendor for each batch)
+                Accounts::create([
+                    'vendor_id'   => $vendorId,
+                    'Credit'      => $lineTotal,
+                    'Debit'       => 0,
+                    'description' => "Batch Purchase: {$batch->barcode} ({$data['qty_purchased']} × {$data['purchase_price']})",
+                    'created_by'  => $userId,
+                ]);
+            }
+
+            // Single Debit for the combined payment (if any)
+            if ($payAmount > 0) {
+                Accounts::create([
+                    'vendor_id'   => $vendorId,
+                    'Credit'      => 0,
+                    'Debit'       => $payAmount,
+                    'description' => 'Payment for Batches: ' . implode(', ', $batchCodes),
+                    'created_by'  => $userId,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'ok',
+                'message' => 'Batches stored successfully',
+                'totals'  => [
+                    'credit' => $totalCredit,
+                    'debit'  => $payAmount,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            report($e);
+
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to store batches. Please try again.',
+            ], 500);
+        }
+    }
 
 
   

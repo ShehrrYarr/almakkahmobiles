@@ -193,3 +193,12 @@ Route::get('/banks', [BankController::class, 'index'])->name('banks');
 Route::post('/banks', [BankController::class, 'storeBank'])->name('storeBank');
 Route::get('/getbank/{id}', [BankController::class, 'getBank'])->name('getBank');
 Route::put('/updatebank', [BankController::class, 'updateBank'])->name('updateBank');
+
+
+//Bulk Batch Store
+Route::get('/batches/bulk', [AccessoryBatchController::class, 'bulkCreate'])
+    ->name('batches.bulk');
+
+Route::post('/batches/bulk', [AccessoryBatchController::class, 'bulkStore'])
+    ->name('batches.bulk.store');
+
