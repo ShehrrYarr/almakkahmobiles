@@ -51,6 +51,17 @@
                             <input type="integer" class="form-control" name="min_qty"
                                 placeholder="Enter Minumum Quantity" required>
                         </div>
+                        <div class="mb-1">
+                            <label for="picture" class="form-label">Accessory Image</label>
+                            <input type="file" name="picture" id="picture" class="form-control" accept="image/*">
+
+                            {{-- Preview box --}}
+                            <div id="imagePreviewContainer" class="mt-2" style="display:none;">
+                                <p class="mb-1">Preview:</p>
+                                <img id="imagePreview" src="" alt="Accessory Preview"
+                                    style="max-width: 120px; max-height: 120px; border: 1px solid #ddd; border-radius: 6px;">
+                            </div>
+                        </div>
                     </div>
                     <div class="form-actions">
                         <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">
@@ -161,7 +172,7 @@
                 {{ session('danger') }}
             </div>
             @endif
-           
+
 
             <button type="button" class="btn btn-primary ml-1" data-toggle="modal" data-target="#exampleModal">
                 <i class="bi bi-plus"></i> Add Accessory
@@ -181,6 +192,7 @@
                                     <th>Created By</th>
 
                                     <th>Name</th>
+                                    <th>Picture</th>
                                     <th>Group</th>
                                     <th>Company</th>
                                     <th>Remaining Qty</th>
@@ -195,6 +207,15 @@
                                 <tr>
                                     <td>{{ $accessory->created_at }}</td>
                                     <td>{{ $accessory->user->name }}</td>
+                                   <td>
+                                    @if($accessory->picture)
+                                    <img src="{{ asset('storage/' . $accessory->picture) }}" alt="Accessory Image" width="60" height="60"
+                                        style="object-fit:cover; border-radius:6px; border:1px solid #ddd; cursor:pointer;"
+                                        onclick="showFullImage('{{ asset('storage/' . $accessory->picture) }}')">
+                                    @else
+                                    <span class="text-muted">No Image</span>
+                                    @endif
+                                </td>
                                     <td>{{ $accessory->name }}</td>
                                     <td>{{ $accessory->group->name ?? '-' }}</td>
                                     <td>{{ $accessory->company->name ?? '-' }}</td>
@@ -219,7 +240,54 @@
     </div>
 </div>
 
+<!-- Fullscreen Image Viewer -->
+<div id="imageViewer" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.9); z-index:9999; align-items:center; justify-content:center;">
+    <img id="viewerImage" src="" alt="Full-size"
+        style="max-width:90%; max-height:90%; border-radius:8px; box-shadow:0 0 20px #000;">
+    <button onclick="closeImageViewer()" style="position:absolute; top:20px; right:40px; background:none; border:none;
+                   color:white; font-size:40px; cursor:pointer;">&times;</button>
+</div>
+
 <script>
+
+    function showFullImage(src) {
+    const viewer = document.getElementById('imageViewer');
+    const img = document.getElementById('viewerImage');
+    img.src = src;
+    viewer.style.display = 'flex';
+    }
+    
+    function closeImageViewer() {
+    document.getElementById('imageViewer').style.display = 'none';
+    }
+    
+    // Optional: close when clicking outside the image
+    document.getElementById('imageViewer').addEventListener('click', function(e) {
+    if (e.target.id === 'imageViewer') closeImageViewer();
+    });
+
+
+    
+    document.getElementById('picture').addEventListener('change', function (event) {
+    const file = event.target.files[0];
+    const previewContainer = document.getElementById('imagePreviewContainer');
+    const preview = document.getElementById('imagePreview');
+    
+    if (file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+    preview.src = e.target.result;
+    previewContainer.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+    } else {
+    preview.src = '';
+    previewContainer.style.display = 'none';
+    }
+    });
+
+
     $(document).ready(function () {
         $('#accessoryTable').DataTable({
         order: [

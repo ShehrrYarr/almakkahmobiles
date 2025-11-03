@@ -33,17 +33,25 @@ class AccessoryController extends Controller
 public function store(Request $request)
 {
     $validated = $request->validate([
-        'name' => 'required|string|max:255',
+        'name'        => 'required|string|max:255',
         'description' => 'nullable|string',
-        'min_qty' => 'nullable|string',
-        'group_id' => 'required|exists:groups,id',
-        'company_id' => 'required|exists:companies,id',
-        
+        'min_qty'     => 'nullable|integer|min:0',
+        'group_id'    => 'required|exists:groups,id',
+        'company_id'  => 'required|exists:companies,id',
+        'picture'     => 'nullable|image|mimes:jpg,jpeg,png|max:2048', // <-- added
     ]);
 
     $validated['user_id'] = auth()->id(); // Store the user who added it
 
+    // ✅ Handle image upload if present
+    if ($request->hasFile('picture')) {
+        // Store under storage/app/public/accessories
+        $path = $request->file('picture')->store('accessories', 'public');
+        $validated['picture'] = $path;
+    }
+
     \App\Models\Accessory::create($validated);
+
     return redirect()->back()->with('success', 'Accessory Created Successfully.');
 }
 

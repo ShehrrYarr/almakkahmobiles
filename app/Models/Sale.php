@@ -17,7 +17,7 @@ class Sale extends Model
         'sale_date',
         'total_amount',
         'pay_amount',  
-        'user_id','status', 'approved_at', 'approved_by','discount_amount'
+        'user_id','status', 'approved_at', 'approved_by','discount_amount', 'comment'
     ];  
     
     public function vendor() {

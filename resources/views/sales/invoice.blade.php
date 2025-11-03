@@ -135,18 +135,35 @@
             text-align: center;
             margin-top: 4px;
         }
+
+        /* Note / Comment box */
+        .note-box {
+            border: 1px dashed #000;
+            border-radius: 4px;
+            padding: 6px;
+            background: #fff;
+            margin: 6px 0;
+        }
+
+        .note-text {
+            font-size: 12px;
+            line-height: 1.35;
+            white-space: pre-wrap;
+            /* just in case */
+        }
     </style>
 </head>
 
 <body>
     <div class="receipt">
-        <div class="center shop-logo bold">AMZ</div>
-        <div class="center shop-logo bold">Shahzad Mobiles</div>
+        <div class="center shop-logo bold">Almakkah</div>
+        <div class="center shop-logo bold">Mobiles</div>
         <div class="center main-label">Hasilpur Branch</div>
         <div class="center" style="font-size:12px; margin-bottom: 2px;">
-            <span class="bold">Ph: 0322-3190100, 0301-7662525</span>
+            <span class="bold">Ph: 0302-6599100</span>
         </div>
         <div class="divider"></div>
+
         <table style="width:100%;margin-bottom:0;">
             <tr>
                 <td class="bold">Invoice#</td>
@@ -180,7 +197,17 @@
             </tr>
             @endif
         </table>
+
+        {{-- NOTE / COMMENT SECTION --}}
+        @if(!empty($sale->comment))
+        <div class="note-box">
+            <div class="bold" style="margin-bottom:2px;">Note / Comment</div>
+            <div class="note-text">{!! nl2br(e($sale->comment)) !!}</div>
+        </div>
+        @endif
+
         <div class="divider"></div>
+
         <table class="receipt-table">
             <thead>
                 <tr>
@@ -201,76 +228,73 @@
                 @endforeach
             </tbody>
         </table>
-       <div class="divider"></div>
-    
-    @php
-    // Subtotal BEFORE discount
-    $grossTotal = $sale->items->sum('subtotal');
-    $discount = (float) ($sale->discount_amount ?? 0);
-    $netTotal = max($grossTotal - $discount, 0);
-    
-    // Only vendors can pay on invoice
-    $isVendorSale = !empty($sale->vendor);
-    $paid = $isVendorSale ? (float) ($sale->pay_amount ?? 0) : 0.0;
-    // clamp just in case
-    if ($paid < 0) $paid=0.0; if ($paid> $netTotal) $paid = $netTotal;
-    
-        $remaining = $isVendorSale ? max($netTotal - $paid, 0) : 0.0;
-        @endphp
-    
-        <table style="width:100%;">
-            <tr>
-                <td class="totals total-label" colspan="3">SUBTOTAL</td>
-                <td class="totals total-value">Rs. {{ number_format($grossTotal, 0) }}</td>
-            </tr>
-    
-            @if($discount > 0)
-            <tr>
-                <td class="totals total-label" colspan="3">DISCOUNT</td>
-                <td class="totals total-value">- Rs. {{ number_format($discount, 0) }}</td>
-            </tr>
-            @endif
-    
-            <tr>
-                <td class="totals total-label" colspan="3">TOTAL</td>
-                <td class="totals total-value">Rs. {{ number_format($netTotal, 0) }}</td>
-            </tr>
-    
-            @if($isVendorSale)
-            <tr>
-                <td class="totals total-label" colspan="3">PAID</td>
-                <td class="totals total-value">Rs. {{ number_format($paid, 0) }}</td>
-            </tr>
-            <tr>
-                <td class="totals total-label" colspan="3">REMAINING</td>
-                <td class="totals total-value">
-                    @if($remaining == 0 && $netTotal > 0)
-                    PAID IN FULL
-                    @else
-                    Rs. {{ number_format($remaining, 0) }}
-                    @endif
-                </td>
-            </tr>
-            @endif
-        </table>
-    
+
         <div class="divider"></div>
-        <div class="policy">
-            <div class="bold center" style="font-size:11.5px; margin-bottom:2px;">Return & Exchange Policy:</div>
-        </div>
-        <div class="urdu">
-            موبائل اسیسری موقع پہ چیک کریں •<br>
-            وارنٹی والی چیز کی کمپنی ذمہ دار ہوگی •<br>
-            استعمال شدہ اور کھلی ہوئی چیز کی واپسی نہیں ہوگی •<br>
-        </div>
-        <div class="divider"></div>
-        <div class="address-note"><b>Address: Baldia road Hasilpur</b></div>
-        <div class="center bold" style="font-size:13px;">
-            Thank you for shopping!
-        </div>
-        <div class="no-print center" style="margin-top:10px;">
-            <button onclick="window.print()" style="padding:5px 16px;font-size:13px;">Print</button>
-        </div>
+
+        @php
+        // Subtotal BEFORE discount
+        $grossTotal = $sale->items->sum('subtotal');
+        $discount = (float) ($sale->discount_amount ?? 0);
+        $netTotal = max($grossTotal - $discount, 0);
+
+        // Only vendors can pay on invoice
+        $isVendorSale = !empty($sale->vendor);
+        $paid = $isVendorSale ? (float) ($sale->pay_amount ?? 0) : 0.0;
+        if ($paid < 0) $paid=0.0; if ($paid> $netTotal) $paid = $netTotal;
+
+            $remaining = $isVendorSale ? max($netTotal - $paid, 0) : 0.0;
+            @endphp
+
+            <table style="width:100%;">
+                <tr>
+                    <td class="totals total-label" colspan="3">SUBTOTAL</td>
+                    <td class="totals total-value">Rs. {{ number_format($grossTotal, 0) }}</td>
+                </tr>
+                @if($discount > 0)
+                <tr>
+                    <td class="totals total-label" colspan="3">DISCOUNT</td>
+                    <td class="totals total-value">- Rs. {{ number_format($discount, 0) }}</td>
+                </tr>
+                @endif
+                <tr>
+                    <td class="totals total-label" colspan="3">TOTAL</td>
+                    <td class="totals total-value">Rs. {{ number_format($netTotal, 0) }}</td>
+                </tr>
+                @if($isVendorSale)
+                <tr>
+                    <td class="totals total-label" colspan="3">PAID</td>
+                    <td class="totals total-value">Rs. {{ number_format($paid, 0) }}</td>
+                </tr>
+                <tr>
+                    <td class="totals total-label" colspan="3">REMAINING</td>
+                    <td class="totals total-value">
+                        @if($remaining == 0 && $netTotal > 0)
+                        PAID IN FULL
+                        @else
+                        Rs. {{ number_format($remaining, 0) }}
+                        @endif
+                    </td>
+                </tr>
+                @endif
+            </table>
+
+            <div class="divider"></div>
+            <div class="policy">
+                <div class="bold center" style="font-size:11.5px; margin-bottom:2px;">Return & Exchange Policy:</div>
+            </div>
+            <div class="urdu">
+                موبائل اسیسری موقع پہ چیک کریں •<br>
+                وارنٹی والی چیز کی کمپنی ذمہ دار ہوگی •<br>
+                استعمال شدہ اور کھلی ہوئی چیز کی واپسی&nbsp;نہیں&nbsp;ہوگی •<br>
+            </div>
+            <div class="divider"></div>
+            <div class="address-note"><b>Address: Baldia road Hasilpur</b></div>
+            <div class="center bold" style="font-size:13px;">
+                Thank you for shopping!
+            </div>
+            <div class="no-print center" style="margin-top:10px;">
+                <button onclick="window.print()" style="padding:5px 16px;font-size:13px;">Print</button>
+            </div>
     </div>
 </body>
 
