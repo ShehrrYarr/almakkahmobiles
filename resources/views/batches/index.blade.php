@@ -266,6 +266,13 @@
 
 
 <script>
+    $(document).ready(function() {
+    $('#storeMobile').on('submit', function() {
+    // Change button text to "Saving..."
+    $('#storeButton').html('<i class="fa fa-spinner fa-spin"></i> Saving...').prop('disabled', true);
+    });
+    });
+
   // ===== Qty × Purchase Price => Pay Amount (single add modal) =====
   const qtyInput = document.getElementById('qty_purchased');
   const priceInput = document.getElementById('purchase_price');
