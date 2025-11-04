@@ -147,6 +147,27 @@
 <div id="barcode-modal" class="barcode-modal print-area"
     style="display:none; position:fixed; top:20%; left:50%; transform:translate(-50%, 0); background:#fff; padding:30px; border-radius:8px; box-shadow:0 2px 8px #0003; z-index:9999; min-width:300px;">
     <div id="barcode-modal-content"></div>
+
+    {{-- Sticker size controls (Width × Height + Unit) --}}
+    <div class="d-flex align-items-center justify-content-start mt-2" id="sticker-size-controls"
+        style="gap:10px; flex-wrap:wrap;">
+        <div>
+            <label class="mb-0" style="font-weight:600;">Sticker Size</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <input type="number" id="sticker_width" class="form-control" style="width:90px;" min="10" step="1"
+                    value="50">
+                <span>×</span>
+                <input type="number" id="sticker_height" class="form-control" style="width:90px;" min="10" step="1"
+                    value="25">
+                <select id="sticker_unit" class="form-control" style="width:90px;">
+                    <option value="mm" selected>mm</option>
+                    <option value="in">inch</option>
+                </select>
+            </div>
+            <small class="text-muted">Tip: 50×25 mm ≈ 2×1 inch</small>
+        </div>
+    </div>
+
     <button class="btn btn-primary btn-sm" onclick="printBarcodeModal()">
         <i class="fa fa-print"></i> Print
     </button>
@@ -383,67 +404,125 @@
     }
   }
 
-  // Print: Barcode + Batch Number + Accessory Name (no price)
+  // --- Remember last sticker size (optional) ---
+  (function rememberSize() {
+    try {
+      const w = localStorage.getItem('sticker_w');
+      const h = localStorage.getItem('sticker_h');
+      const u = localStorage.getItem('sticker_u');
+      if (w && document.getElementById('sticker_width'))  document.getElementById('sticker_width').value  = w;
+      if (h && document.getElementById('sticker_height')) document.getElementById('sticker_height').value = h;
+      if (u && document.getElementById('sticker_unit'))   document.getElementById('sticker_unit').value   = u;
+    } catch(e){}
+  })();
+
+  // Print: barcode + batch number + accessory name, auto-sized to chosen label dimensions (mm/inch)
   function printBarcodeModal(labelCount = 1) {
     const modalEl = document.getElementById('barcode-modal');
     let batchNumber   = modalEl?.dataset?.batchBarcode || '';
     let accessoryName = modalEl?.dataset?.accessoryName || '';
 
-    // Fallback: read from modal text if dataset missing
+    // Fallback if dataset missing
     if (!accessoryName) {
       const p = Array.from(document.querySelectorAll('#barcode-modal-content p'))
         .find(el => el.textContent.trim().startsWith('Accessory:'));
       if (p) accessoryName = p.textContent.replace(/^Accessory:\s*/i, '').trim();
     }
 
-    const esc = (s) => String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    // Read size controls
+    const wEl = document.getElementById('sticker_width');
+    const hEl = document.getElementById('sticker_height');
+    const uEl = document.getElementById('sticker_unit');
 
-    const safeBatch = esc(batchNumber);
-    const safeName  = esc(accessoryName);
+    const unit  = (uEl?.value === 'in') ? 'in' : 'mm';
+    const width = Math.max(10, parseFloat(wEl?.value || '50'));
+    const height= Math.max(10, parseFloat(hEl?.value || '25'));
+
+    // Persist choice
+    try {
+      localStorage.setItem('sticker_w', String(width));
+      localStorage.setItem('sticker_h', String(height));
+      localStorage.setItem('sticker_u', unit);
+    } catch(e){}
+
+    // Compute sizes
+    const shortSide = Math.min(width, height);
+    const titleSize  = (unit === 'in') ? Math.max(0.11, shortSide * 0.09) : Math.max(2.8, shortSide * 0.09);
+    const nameSize   = (unit === 'in') ? Math.max(0.09, shortSide * 0.075) : Math.max(2.2, shortSide * 0.075);
+    const svgHeight  = (unit === 'in') ? Math.max(height * 0.60, 0.5) : Math.max(height * 0.60, 10);
+
+    const esc = s => String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 
     const win = window.open('', '', 'width=900,height=700');
+
     win.document.write(`
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=50mm, height=25mm, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1, width=device-width">
   <title>Print Barcodes</title>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
   <style>
-    @page { size: 50mm 25mm; margin: 0; }
-    html, body { width: 50mm; height: 25mm; margin: 0; padding: 0; }
-    .barcode-box {
-      width: 50mm; height: 25mm; page-break-after: always;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    @page { size: ${width}${unit} ${height}${unit}; margin: 0; }
+    html, body {
+      width: ${width}${unit};
+      height: ${height}${unit};
+      margin: 0; padding: 0;
     }
-    .barcode-box svg { width: 120px !important; height: 45px !important; display:block; }
-    .barcode-label { font-size: 4.5mm; font-weight: 600; margin-top: 1mm; }   /* batch number */
-    .barcode-name  { font-size: 3.6mm; font-weight: 500; margin-top: 1mm; line-height: 1.05; max-width: 46mm;
-                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .barcode-box {
+      width: ${width}${unit};
+      height: ${height}${unit};
+      page-break-after: always;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center; text-align:center;
+      overflow:hidden;
+    }
+    .barcode-box svg {
+      width: calc(${width}${unit} - ${unit === 'in' ? '0.20in' : '5mm'});
+      height: ${svgHeight}${unit};
+      display:block;
+    }
+    .barcode-label {
+      font-weight: 700;
+      margin-top: ${unit === 'in' ? '0.02in' : '0.5mm'};
+      font-size: ${titleSize}${unit};
+      line-height: 1.05;
+      max-width: calc(${width}${unit} - ${unit === 'in' ? '0.20in' : '5mm'});
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .barcode-name {
+      font-weight: 500;
+      margin-top: ${unit === 'in' ? '0.01in' : '0.3mm'};
+      font-size: ${nameSize}${unit};
+      line-height: 1.05;
+      max-width: calc(${width}${unit} - ${unit === 'in' ? '0.20in' : '5mm'});
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
   </style>
 </head>
 <body>
   ${Array.from({ length: labelCount }).map((_, i) => `
     <div class="barcode-box">
       <svg id="barcode_${i}"></svg>
-      <div class="barcode-label">${safeBatch}</div>
-      <div class="barcode-name">${safeName}</div>
+      <div class="barcode-label">${esc(batchNumber)}</div>
+      <div class="barcode-name">${esc(accessoryName)}</div>
     </div>
   `).join('')}
   <script>
     window.onload = function() {
       for (let i = 0; i < ${labelCount}; i++) {
-        JsBarcode("#barcode_" + i, "${batchNumber}", {
+        JsBarcode("#barcode_" + i, ${JSON.stringify(batchNumber)}, {
           format: "CODE128",
-          width: 2,
-          height: 40,
-          displayValue: false
+          width: ${unit === 'in' ? Math.max(0.01, width * 0.02).toFixed(3) : Math.max(1.2, width * 0.04).toFixed(2)},
+          height: ${unit === 'in' ? (svgHeight * 96).toFixed(0) : (svgHeight * 3.78).toFixed(0)}, // use px internally; CSS height controls final render
+          displayValue: false,
+          margin: 0
         });
       }
-      setTimeout(() => window.print(), 300);
+      setTimeout(() => window.print(), 250);
     };
   <\/script>
 </body>
