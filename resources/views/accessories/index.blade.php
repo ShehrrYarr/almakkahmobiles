@@ -191,8 +191,8 @@
                                     <th>Created At</th>
                                     <th>Created By</th>
 
-                                    <th>Name</th>
                                     <th>Picture</th>
+                                    <th>Name</th>
                                     <th>Group</th>
                                     <th>Company</th>
                                     <th>Remaining Qty</th>

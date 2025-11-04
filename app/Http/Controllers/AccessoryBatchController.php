@@ -99,7 +99,7 @@ class AccessoryBatchController extends Controller
     //     }
     // }
 
-    public function store(Request $request)
+   public function store(Request $request)
 {
     try {
         $validated = $request->validate([
@@ -107,12 +107,11 @@ class AccessoryBatchController extends Controller
             'vendor_id'       => 'required|exists:vendors,id',
             'qty_purchased'   => 'required|integer|min:1',
             'purchase_price'  => 'required|numeric|min:0',
-            'selling_price'  => 'required|numeric|min:0',
+            'selling_price'   => 'required|numeric|min:0',
             'purchase_date'   => 'required|date',
-        'description' => 'nullable|string',
-
-           
+            'description'     => 'nullable|string',
         ]);
+
         $validated['user_id'] = auth()->id();
         $validated['qty_remaining'] = $validated['qty_purchased'];
 
@@ -129,6 +128,7 @@ class AccessoryBatchController extends Controller
         // Credit: you owe the vendor for the batch
         \App\Models\Accounts::create([
             'vendor_id'   => $validated['vendor_id'],
+            'batch_id'    => $batch->id, // ✅ added
             'Credit'      => $totalAmount,
             'Debit'       => 0,
             'description' => "Batch Purchase: {$batch->barcode} ({$validated['qty_purchased']} x {$validated['purchase_price']})",
@@ -140,6 +140,7 @@ class AccessoryBatchController extends Controller
             sleep(1);
             \App\Models\Accounts::create([
                 'vendor_id'   => $validated['vendor_id'],
+                'batch_id'    => $batch->id, // ✅ added
                 'Credit'      => 0,
                 'Debit'       => $payAmount,
                 'description' => "Payment for Batch: {$batch->barcode}",
@@ -158,6 +159,7 @@ class AccessoryBatchController extends Controller
             ->with('danger', 'An unexpected error occurred while adding the batch. Please try again.');
     }
 }
+
 
 
 

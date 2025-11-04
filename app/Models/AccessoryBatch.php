@@ -22,4 +22,9 @@ class AccessoryBatch extends Model
 {
     return $this->belongsTo(User::class);
 }
+
+ public function accounts()
+    {
+        return $this->hasMany(Accounts::class, 'batch_id');
+    }
 }
