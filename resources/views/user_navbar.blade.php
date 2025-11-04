@@ -167,6 +167,9 @@
                                                 <li class="@if (\Request::is('pos')) active @endif"><a class="menu-item"
                                                                 href="/pos" data-i18n="1 columns">POS</a>
                                                 </li>
+                                                <li class="@if (\Request::is('/sales/live')) active @endif"><a class="menu-item"
+                                                                href="/sales/live" data-i18n="1 columns">Live Feed</a>
+                                                </li>
                                                 <li class="@if (\Request::is('sales/pending')) active @endif"><a
                                                                 class="menu-item" href="/sales/pending"
                                                                 data-i18n="1 columns">Pending Sales</a>

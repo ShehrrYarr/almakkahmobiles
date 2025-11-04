@@ -349,6 +349,7 @@
                   <th>Total</th>
                   <th>Payments</th>
                   <th>Items</th>
+                  <th>Comment</th>
                   <th>Status</th>
                   <th>Receipt</th>
                 </tr>
@@ -423,6 +424,7 @@
                       </ul>
                     </a>
                   </td>
+                  <td>{{ $sale->comment }}</td>
                   <td>
                     @if($sale->status == 'approved')
                     <span class="badge bg-success">Approved</span>

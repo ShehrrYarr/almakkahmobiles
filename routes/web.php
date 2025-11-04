@@ -15,6 +15,7 @@ use App\Http\Controllers\LoginHistoryController;
 use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\BankController;
 
+use App\Http\Controllers\SalesLiveController;
 
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
@@ -217,9 +218,12 @@ Route::get('/vendors/search', function (\Illuminate\Http\Request $request) {
 
 
 
-//Daily sales
+
+//Daily sales--------> Done
 //Pictures of accessory  ---> Done
 //Whatsapp send
 //Printer setting ------> Done
-//Comments in sales
+//Comments in sales ------> Done
 
+Route::get('/sales/live', [SalesLiveController::class, 'index'])->name('sales.live.index');
+Route::get('/sales/live/feed', [SalesLiveController::class, 'feed'])->name('sales.live.feed');
