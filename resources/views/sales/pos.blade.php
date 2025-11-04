@@ -204,7 +204,7 @@
                   <option value="">Select Accessory Batch</option>
                   @foreach($batches as $batch)
                   <option value="{{ $batch->barcode }}">
-                    {{ $batch->barcode }} - {{ $batch->accessory->name }} (Remaining: {{ $batch->qty_remaining }})
+                    {{ $batch->barcode }} - {{ $batch->accessory->name }} (Remaining: {{ $batch->qty_remaining }}) - {{ $batch->accessory->description }} 
                   </option>
                   @endforeach
                 </select>
