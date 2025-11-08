@@ -233,6 +233,8 @@
                                     <th>Created By</th>
 
                                     <th>Accessory</th>
+                                    <th>Group</th>
+                                    <th>Company</th>
                                     <th>Vendor</th>
                                     <th>Qty Purchased</th>
                                     <th>Qty Remaining</th>
@@ -252,6 +254,8 @@
                                     <td>{{ $batch->created_at }}</td>
                                     <td>{{ $batch->user->name }}</td>
                                     <td>{{ $batch->accessory->name ?? '-' }}</td>
+                                    <td>{{ optional($batch->accessory->group)->name ?? '-' }}</td>
+                                    <td>{{ optional($batch->accessory->company)->name ?? '-' }}</td>
                                     <td>{{ $batch->vendor->name ?? '-' }}</td>
                                     <td>{{ $batch->qty_purchased }}</td>
                                     <td>{{ $batch->qty_remaining }}</td>
