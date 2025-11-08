@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\AccessoryBatch;
 use App\Models\company;
-use App\Models\Group;
+use App\Models\group;
 use App\Models\MasterPassword;
 use App\Models\vendor;
 use App\Models\Accessory;
@@ -41,8 +41,8 @@ class AccessoryBatchController extends Controller
 {
     $vendors    = Vendor::all();          // existing (if needed elsewhere)
     $accessories= Accessory::all();       // existing (if needed elsewhere)
-    $groups     = \App\Models\Group::all();
-    $companies  = \App\Models\Company::all();
+    $groups     = \App\Models\group::all();
+    $companies  = \App\Models\company::all();
 
     $query = AccessoryBatch::with(['accessory', 'user', 'vendor']);
 
