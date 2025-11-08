@@ -229,3 +229,7 @@ Route::get('/sales/live', [SalesLiveController::class, 'index'])->name('sales.li
 Route::get('/sales/live/feed', [SalesLiveController::class, 'feed'])->name('sales.live.feed');
 
 //error fix
+
+//Press f2 to hide or show the purchase price , by default hidden rahy (******)
+//Claim ki functionality
+//Check lagana h agr koi item loss me jarha ho to usko alert dy 
