@@ -199,11 +199,11 @@
                                                 </li>
                                                 <li class="@if (\Request::is('accessories')) active @endif"><a
                                                                 class="menu-item" href="/accessories"
-                                                                data-i18n="1 columns">Add Accessory</a>
+                                                                data-i18n="1 columns">Manage Accessory</a>
                                                 </li>
                                                 <li class="@if (\Request::is('batches')) active @endif"><a
                                                                 class="menu-item" href="/batches"
-                                                                data-i18n="1 columns">Add Batch</a>
+                                                                data-i18n="1 columns">Manage Batch</a>
                                                 </li>
 
 

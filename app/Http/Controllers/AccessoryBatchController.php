@@ -37,28 +37,51 @@ class AccessoryBatchController extends Controller
     
 
 
-   public function index(Request $request)
+  public function index(Request $request)
 {
-    $vendors = Vendor::all();
-    $accessories = Accessory::all();
+    $vendors    = Vendor::all();          // existing (if needed elsewhere)
+    $accessories= Accessory::all();       // existing (if needed elsewhere)
+    $groups     = \App\Models\Group::all();
+    $companies  = \App\Models\Company::all();
 
     $query = AccessoryBatch::with(['accessory', 'user', 'vendor']);
 
+    // Date range (created_at)
     if ($request->filled('start_date') && $request->filled('end_date')) {
         $start = $request->input('start_date') . ' 00:00:00';
-        $end = $request->input('end_date') . ' 23:59:59';
+        $end   = $request->input('end_date')   . ' 23:59:59';
         $query->whereBetween('created_at', [$start, $end]);
+    }
+
+    // Filter by Group (via accessory)
+    if ($request->filled('group_id')) {
+        $groupId = (int) $request->input('group_id');
+        $query->whereHas('accessory', function ($q) use ($groupId) {
+            $q->where('group_id', $groupId);
+        });
+    }
+
+    // Filter by Company (via accessory)
+    if ($request->filled('company_id')) {
+        $companyId = (int) $request->input('company_id');
+        $query->whereHas('accessory', function ($q) use ($companyId) {
+            $q->where('company_id', $companyId);
+        });
     }
 
     $batches = $query->orderByDesc('id')->get();
 
     // Sum of total purchase price (filtered!)
-    $totalPurchasePrice = $batches->sum(function($batch) {
+    $totalPurchasePrice = $batches->sum(function ($batch) {
         return $batch->qty_purchased * $batch->purchase_price;
     });
 
-    return view('batches.index', compact('batches', 'vendors', 'accessories', 'totalPurchasePrice'));
+    return view('batches.index', compact(
+        'batches', 'vendors', 'accessories', 'totalPurchasePrice',
+        'groups', 'companies'
+    ));
 }
+
 
 
 

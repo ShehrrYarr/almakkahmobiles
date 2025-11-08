@@ -177,17 +177,37 @@
                 {{ session('danger') }}
             </div>
             @endif
-            <div class="ml-1">
-                <form method="GET" action="{{ route('batches.index') }}" class="mb-3 d-flex align-items-center">
-                    <input type="date" class="form-control mr-2" name="start_date" value="{{ request('start_date') }}"
-                        style="max-width: 180px;">
-                    <span class="mx-1">to</span>
-                    <input type="date" class="form-control mr-2" name="end_date" value="{{ request('end_date') }}"
-                        style="max-width: 180px;">
-                    <button type="submit" class="btn btn-primary mx-1">Filter</button>
-                    <a href="{{ route('batches.index') }}" class="btn btn-secondary mx-1">Reset</a>
-                </form>
-            </div>
+          <div class="ml-1">
+            <form method="GET" action="{{ route('batches.index') }}" class="mb-3 d-flex align-items-center"
+                style="gap:8px; flex-wrap:wrap;">
+                <input type="date" class="form-control" name="start_date" value="{{ request('start_date') }}"
+                    style="max-width: 180px;">
+                <span class="mx-1">to</span>
+                <input type="date" class="form-control" name="end_date" value="{{ request('end_date') }}"
+                    style="max-width: 180px;">
+        
+                <select name="group_id" class="form-control" style="max-width: 220px;">
+                    <option value="">All Groups</option>
+                    @foreach($groups as $g)
+                    <option value="{{ $g->id }}" {{ (string)$g->id === request('group_id') ? 'selected' : '' }}>
+                        {{ $g->name }}
+                    </option>
+                    @endforeach
+                </select>
+        
+                <select name="company_id" class="form-control" style="max-width: 240px;">
+                    <option value="">All Companies</option>
+                    @foreach($companies as $c)
+                    <option value="{{ $c->id }}" {{ (string)$c->id === request('company_id') ? 'selected' : '' }}>
+                        {{ $c->name }}
+                    </option>
+                    @endforeach
+                </select>
+        
+                <button type="submit" class="btn btn-primary mx-1">Filter</button>
+                <a href="{{ route('batches.index') }}" class="btn btn-secondary mx-1">Reset</a>
+            </form>
+        </div>
             <div class="ml-1">
                 <h2>Total Purchase Amount: {{$totalPurchasePrice}}</h2>
             </div>
