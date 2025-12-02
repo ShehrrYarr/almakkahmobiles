@@ -20,78 +20,181 @@ use App\Models\SaleItem;
 class UserController extends Controller
 {
 
-    public function index()
-    {
-        $userId = auth()->id();
+//     public function index()
+//     {
+//         $userId = auth()->id();
 
-        $totalAccessoryCount = AccessoryBatch::sum('qty_remaining');
+//         $totalAccessoryCount = AccessoryBatch::sum('qty_remaining');
 
-        $totalSoldAccessories = SaleItem::sum('quantity');
+//         $totalSoldAccessories = SaleItem::sum('quantity');
 
        
 
-            $totalAccessoryAmount = \App\Models\Accessory::with('batches')
-            ->get()
-            ->reduce(function($carry, $accessory) {
-                // Sum qty_remaining * purchase_price for all batches of this accessory
-                $amount = $accessory->batches->sum(function($batch) {
-                    return $batch->qty_remaining * $batch->purchase_price;
-                });
-                return $carry + $amount;
-            }, 0);
+//             $totalAccessoryAmount = \App\Models\Accessory::with('batches')
+//             ->get()
+//             ->reduce(function($carry, $accessory) {
+//                 // Sum qty_remaining * purchase_price for all batches of this accessory
+//                 $amount = $accessory->batches->sum(function($batch) {
+//                     return $batch->qty_remaining * $batch->purchase_price;
+//                 });
+//                 return $carry + $amount;
+//             }, 0);
 
-        $totalSoldAmount = SaleItem::sum('subtotal');
+//         $totalSoldAmount = SaleItem::sum('subtotal');
     
 
 
-        // 7. Weekly Profit (Friday to Friday)
-        $startOfWeek = Carbon::now()->startOfWeek(Carbon::FRIDAY);
-        $endOfWeek = Carbon::now()->endOfWeek(Carbon::FRIDAY);
+//         // 7. Weekly Profit (Friday to Friday)
+//         $startOfWeek = Carbon::now()->startOfWeek(Carbon::FRIDAY);
+//         $endOfWeek = Carbon::now()->endOfWeek(Carbon::FRIDAY);
 
      
        
 
-        //Total Receivable from Vendors (sum of DB - CR where balance > 0)
-        $vendorReceivables = DB::table('accounts')
-        ->select(
-            'vendor_id',
-            DB::raw("SUM(Debit) AS total_debit"),
-            DB::raw("SUM(Credit) AS total_credit")
-        )
+//         //Total Receivable from Vendors (sum of DB - CR where balance > 0)
+//         $vendorReceivables = DB::table('accounts')
+//         ->select(
+//             'vendor_id',
+//             DB::raw("SUM(Debit) AS total_debit"),
+//             DB::raw("SUM(Credit) AS total_credit")
+//         )
+//         ->whereNotNull('vendor_id')
+//         ->groupBy('vendor_id')
+//         ->get();
+    
+//     $totalReceivable = $vendorReceivables->reduce(function ($carry, $vendor) {
+//         $balance = $vendor->total_debit - $vendor->total_credit;
+//         return $balance > 0 ? $carry + $balance : $carry;
+//     }, 0);
+
+//         $lowStockAccessories = Accessory::with('batches')->get()->filter(function($accessory) {
+//             $totalStock = $accessory->batches->sum('qty_remaining');
+//             return $totalStock < $accessory->min_qty;
+//         })->map(function($accessory) {
+//             return [
+//                 'name' => $accessory->name,
+//                 'min_qty' => $accessory->min_qty,
+//                 'stock' => $accessory->batches->sum('qty_remaining'),
+//             ];
+//         })->values();
+
+// $totalApprovedSales = \App\Models\Sale::where('status', 'approved')->sum('total_amount');
+// $totalPendingSales = \App\Models\Sale::where('status', 'pending')->sum('total_amount');
+// $totalApprovedSalesCount = \App\Models\Sale::where('status', 'approved')->count();
+// $totalPendingSalesCount = \App\Models\Sale::where('status', 'pending')->count();
+
+//         return view('user_dashboard', compact(
+//             'totalAccessoryCount',
+//             'totalSoldAccessories',
+//             'totalSoldAmount',
+//             'totalReceivable',
+//             'userId','lowStockAccessories','totalAccessoryAmount'  , 'totalApprovedSales',
+//     'totalPendingSales','totalApprovedSalesCount','totalPendingSalesCount'
+//         ));
+//     }
+
+public function index()
+{
+    $userId = auth()->id();
+
+    $totalAccessoryCount = \App\Models\AccessoryBatch::sum('qty_remaining');
+    $totalSoldAccessories = \App\Models\SaleItem::sum('quantity');
+
+    $totalAccessoryAmount = \App\Models\Accessory::with('batches')
+        ->get()
+        ->reduce(function($carry, $accessory) {
+            $amount = $accessory->batches->sum(function($batch) {
+                return $batch->qty_remaining * $batch->purchase_price;
+            });
+            return $carry + $amount;
+        }, 0);
+
+    $totalSoldAmount = \App\Models\SaleItem::sum('subtotal');
+
+    // Total Receivable from Vendors
+    $vendorReceivables = \DB::table('accounts')
+        ->select('vendor_id',
+            \DB::raw("SUM(Debit) AS total_debit"),
+            \DB::raw("SUM(Credit) AS total_credit"))
         ->whereNotNull('vendor_id')
         ->groupBy('vendor_id')
         ->get();
-    
+
     $totalReceivable = $vendorReceivables->reduce(function ($carry, $vendor) {
         $balance = $vendor->total_debit - $vendor->total_credit;
         return $balance > 0 ? $carry + $balance : $carry;
     }, 0);
 
-        $lowStockAccessories = Accessory::with('batches')->get()->filter(function($accessory) {
+    // ----- Low stock with company/group -----
+    $lowStockAccessories = \App\Models\Accessory::with(['batches','company','group'])
+        ->get()
+        ->filter(function($accessory) {
             $totalStock = $accessory->batches->sum('qty_remaining');
             return $totalStock < $accessory->min_qty;
-        })->map(function($accessory) {
+        })
+        ->map(function($accessory) {
             return [
-                'name' => $accessory->name,
-                'min_qty' => $accessory->min_qty,
-                'stock' => $accessory->batches->sum('qty_remaining'),
+                'id'         => $accessory->id,
+                'name'       => $accessory->name,
+                'min_qty'    => (int) $accessory->min_qty,
+                'stock'      => (int) $accessory->batches->sum('qty_remaining'),
+                'company_id' => optional($accessory->company)->id,
+                'company'    => optional($accessory->company)->name ?? '-',
+                'group_id'   => optional($accessory->group)->id,
+                'group'      => optional($accessory->group)->name ?? '-',
             ];
-        })->values();
+        })
+        ->values();
 
-$totalApprovedSales = \App\Models\Sale::where('status', 'approved')->sum('total_amount');
-$totalPendingSales = \App\Models\Sale::where('status', 'pending')->sum('total_amount');
-$totalApprovedSalesCount = \App\Models\Sale::where('status', 'approved')->count();
-$totalPendingSalesCount = \App\Models\Sale::where('status', 'pending')->count();
+    // Build chips (company & group) from the low-stock list only
+    $lowStockCompanies = $lowStockAccessories
+        ->groupBy('company_id')
+        ->map(function($items, $companyId) {
+            return [
+                'id'    => $companyId,
+                'name'  => $items->first()['company'] ?? '-',
+                'count' => $items->count(),
+            ];
+        })
+        ->values()
+        ->sortBy('name')
+        ->values();
 
-        return view('user_dashboard', compact(
-            'totalAccessoryCount',
-            'totalSoldAccessories',
-            'totalSoldAmount',
-            'totalReceivable',
-            'userId','lowStockAccessories','totalAccessoryAmount'  , 'totalApprovedSales',
-    'totalPendingSales','totalApprovedSalesCount','totalPendingSalesCount'
-        ));
-    }
+    $lowStockGroups = $lowStockAccessories
+        ->groupBy('group_id')
+        ->map(function($items, $groupId) {
+            return [
+                'id'    => $groupId,
+                'name'  => $items->first()['group'] ?? '-',
+                'count' => $items->count(),
+            ];
+        })
+        ->values()
+        ->sortBy('name')
+        ->values();
+
+    $totalApprovedSales      = \App\Models\Sale::where('status', 'approved')->sum('total_amount');
+    $totalPendingSales       = \App\Models\Sale::where('status', 'pending')->sum('total_amount');
+    $totalApprovedSalesCount = \App\Models\Sale::where('status', 'approved')->count();
+    $totalPendingSalesCount  = \App\Models\Sale::where('status', 'pending')->count();
+
+    return view('user_dashboard', compact(
+        'totalAccessoryCount',
+        'totalSoldAccessories',
+        'totalSoldAmount',
+        'totalReceivable',
+        'userId',
+        'lowStockAccessories',
+        'totalAccessoryAmount',
+        'totalApprovedSales',
+        'totalPendingSales',
+        'totalApprovedSalesCount',
+        'totalPendingSalesCount',
+        'lowStockCompanies',
+        'lowStockGroups'
+    ));
+}
+
 
     public function showUsers()
     {

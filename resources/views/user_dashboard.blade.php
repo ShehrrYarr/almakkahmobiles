@@ -93,71 +93,66 @@
                     </div>
                 </div>
             </div>
-            <!-- <div class="row grouped-multiple-statistics-card">
-                                        <div class="col-12">
-                                            <div class="card">
-                                                <div class="card-body">
-                                                    <div class="row">
 
-
-
-                                                    </div>
-
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div> -->
-            {{-- @if($lowStockAccessories->count())
-            <div
-                style="margin: 24px 0; padding: 20px; background: #fff7e6; border: 1px solid #ffd580; border-radius: 12px;">
-                <h4 style="color: #b32d2e; margin-bottom: 12px;">
-                    <i class="fas fa-exclamation-triangle"></i> Low Stock Reminder
-                </h4>
-                <table class="low-stock-table" style="width:100%; border-collapse:collapse;">
-                    <thead>
-                        <tr>
-                            <th>Accessory Name</th>
-                            <th>Minimum Qty</th>
-                            <th>Current Stock</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($lowStockAccessories as $item)
-                        <tr>
-                            <td>{{ $item['name'] }}</td>
-                            <td>{{ $item['min_qty'] }}</td>
-                            <td class="low-stock-count">{{ $item['stock'] }}</td>
-                            <td class="low-stock-status">Restock Needed!</td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            @else
-            <div style="margin: 24px 0; padding: 15px; background: #eafdea; border-radius: 12px; color:#267a23;">
-                All accessories are above their minimum quantity.
-            </div> @endif --}}
 
 
             @if($lowStockAccessories->count())
             <div id="lowStockBox"
                 style="margin: 24px 0; padding: 20px; background: #fff7e6; border: 1px solid #ffd580; border-radius: 12px; position: relative;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h4 style="color: #b32d2e; margin-bottom: 12px;">
+
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <h4 style="color:#b32d2e; margin-bottom:12px;">
                         <i class="fas fa-exclamation-triangle"></i> Low Stock Reminder
+                        <small id="lowStockFilterBadge" style="margin-left:8px; color:#7a4b00;"></small>
                     </h4>
+
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        {{-- Companies chips --}}
+                        @if(isset($lowStockCompanies) && $lowStockCompanies->count())
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span style="font-weight:700; color:#a34624;">Companies:</span>
+                            @foreach($lowStockCompanies as $c)
+                            <button type="button" class="chip chip-company" data-type="company" data-id="{{ $c['id'] }}"
+                                style="border:none; background:#ffe28e; color:#7a4b00; padding:6px 10px; border-radius:999px; cursor:pointer;">
+                                {{ $c['name'] }} ({{ $c['count'] }})
+                            </button>
+                            @endforeach
+                        </div>
+                        @endif
+
+                        {{-- Groups chips --}}
+                        @if(isset($lowStockGroups) && $lowStockGroups->count())
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span style="font-weight:700; color:#a34624;">Groups:</span>
+                            @foreach($lowStockGroups as $g)
+                            <button type="button" class="chip chip-group" data-type="group" data-id="{{ $g['id'] }}"
+                                style="border:none; background:#ffe28e; color:#7a4b00; padding:6px 10px; border-radius:999px; cursor:pointer;">
+                                {{ $g['name'] }} ({{ $g['count'] }})
+                            </button>
+                            @endforeach
+                        </div>
+                        @endif
+
+                        {{-- Clear filter --}}
+                        <button type="button" id="clearLowStockFilter"
+                            style="border:none; background:#ffd580; color:#7a4b00; padding:6px 10px; border-radius:999px; cursor:pointer; display:none;">
+                            Clear filter
+                        </button>
+                    </div>
+
                     <button id="toggleStockBtn"
                         style="background:#ffe28e;border:none;color:#b32d2e;padding:5px 16px;border-radius:5px;font-weight:bold;cursor:pointer;">
                         Maximize
                     </button>
                 </div>
-                <div style="overflow:hidden; transition: max-height 0.5s cubic-bezier(.68,-0.55,.27,1.55);"
-                    id="lowStockTableWrapper">
+
+                <div style="overflow:hidden;" id="lowStockTableWrapper">
                     <table class="low-stock-table" style="width:100%; border-collapse:collapse;">
                         <thead>
                             <tr>
                                 <th>Accessory Name</th>
+                                <th>Company</th>
+                                <th>Group</th>
                                 <th>Minimum Qty</th>
                                 <th>Current Stock</th>
                                 <th>Status</th>
@@ -240,7 +235,7 @@
                                                                                     </span> -->
                                     </div>
                                 </div>
-                               
+
 
                             </div>
                         </div>
@@ -252,13 +247,14 @@
                     <div class="card">
                         <div class="card-body">
                             <div class="row">
-                                
-                                
 
-                               
-                               <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
-                                    <div class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
-                                
+
+
+
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+
                                         <div class="stats-amount mr-3">
                                             <h3 class="heading-text text-bold-600">
                                                 Rs.{{ number_format($totalApprovedSales) }}</h3>
@@ -269,7 +265,7 @@
                                                                                                                     </span> -->
                                     </div>
                                 </div>
-                               
+
 
                             </div>
                         </div>
@@ -306,9 +302,10 @@
                     color: #b32d2e;
                     font-weight: 600;
                 }
+
                 #lowStockTableWrapper {
-                overflow: hidden;
-                transition: max-height 0.5s cubic-bezier(.68,-0.55,.27,1.55);
+                    overflow: hidden;
+                    transition: max-height 0.5s cubic-bezier(.68, -0.55, .27, 1.55);
                 }
             </style>
 
@@ -329,8 +326,7 @@
 </div>
 </div>
 
-<script>
-
+{{-- <script>
     let lowStockAccessories = @json($lowStockAccessories);
     let showingAll = false;
     
@@ -385,89 +381,115 @@
     if (lowStockAccessories.length <= 5) { btn.style.display='none' ; } });
 
 
+</script> --}}
+
+<script>
+    // Data from controller
+  const LOW_STOCK = @json($lowStockAccessories); // [{id,name,stock,min_qty,company_id,company,group_id,group}]
+  let showingAll = false;
+  let activeFilter = null; // { type: 'company'|'group', id: number|null }
+
+  const tbody   = document.getElementById('low-stock-tbody');
+  const wrapper = document.getElementById('lowStockTableWrapper');
+  const toggleBtn = document.getElementById('toggleStockBtn');
+  const clearBtn  = document.getElementById('clearLowStockFilter');
+  const filterBadge = document.getElementById('lowStockFilterBadge');
+
+  function applyFilter(data) {
+    if (!activeFilter) return data;
+    if (activeFilter.type === 'company') {
+      return data.filter(x => String(x.company_id) === String(activeFilter.id));
+    }
+    if (activeFilter.type === 'group') {
+      return data.filter(x => String(x.group_id) === String(activeFilter.id));
+    }
+    return data;
+  }
+
+  function renderLowStockTable(showAll = false) {
+    tbody.innerHTML = '';
+
+    let data = applyFilter(LOW_STOCK);
+    let dataToShow = showAll ? data : data.slice(0, 5);
+
+    dataToShow.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${item.name}</td>
+        <td>${item.company || '-'}</td>
+        <td>${item.group || '-'}</td>
+        <td>${item.min_qty}</td>
+        <td class="low-stock-count">${item.stock}</td>
+        <td class="low-stock-status">Restock Needed!</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Empty state
+    if (dataToShow.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="6" style="text-align:center; padding:10px;">No items match this filter.</td>`;
+      tbody.appendChild(tr);
+    }
+
+    // Filter badge + clear button visibility
+    if (activeFilter) {
+      clearBtn.style.display = '';
+      const label = activeFilter.type === 'company' ? 'Company' : 'Group';
+      const name = (data[0]?.[activeFilter.type] ?? '').toString();
+      filterBadge.textContent = `(${label}: ${name})`;
+    } else {
+      clearBtn.style.display = 'none';
+      filterBadge.textContent = '';
+    }
+  }
+
+  // Expand/Collapse animation
+  document.addEventListener('DOMContentLoaded', () => {
+    renderLowStockTable(false);
+
+    const rowHeight = 42; // tweak if needed
+    const collapsedHeight = rowHeight * 5 + 44; // 5 rows + header
+    // dynamic expanded height based on filtered set
+    function recomputeExpandedHeight() {
+      const count = applyFilter(LOW_STOCK).length || 1;
+      return rowHeight * count + 44;
+    }
+
+    wrapper.style.maxHeight = collapsedHeight + 'px';
+
+    toggleBtn.addEventListener('click', () => {
+      showingAll = !showingAll;
+      renderLowStockTable(showingAll);
+      wrapper.style.maxHeight = (showingAll ? recomputeExpandedHeight() : collapsedHeight) + 'px';
+      toggleBtn.textContent = showingAll ? 'Minimize' : 'Maximize';
+    });
+
+    // Chip clicks
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        activeFilter = { type: chip.dataset.type, id: chip.dataset.id };
+        showingAll = true; // auto-expand when filtering
+        renderLowStockTable(true);
+        wrapper.style.maxHeight = recomputeExpandedHeight() + 'px';
+        toggleBtn.textContent = 'Minimize';
+      });
+    });
+
+    // Clear filter
+    clearBtn.addEventListener('click', () => {
+      activeFilter = null;
+      showingAll = false;
+      renderLowStockTable(false);
+      wrapper.style.maxHeight = collapsedHeight + 'px';
+      toggleBtn.textContent = 'Maximize';
+    });
+
+    // Hide Maximize button if <= 5 items initially
+    if (LOW_STOCK.length <= 5) { toggleBtn.style.display = 'none'; }
+  });
 </script>
 
-
-{{-- <script>
-    document.getElementById('downPayment').addEventListener('input', updateRemaining);
-    document.getElementById('totalAmount').addEventListener('input', updateRemaining);
-    
-    function updateRemaining() {
-        let total = parseFloat(document.getElementById('totalAmount').value) || 0;
-        let down = parseFloat(document.getElementById('downPayment').value) || 0;
-        let remaining = total - down;
-        document.getElementById('remainingAmount').value = remaining >= 0 ? remaining.toFixed(2) : 0;
-    }
-    
-    document.getElementById('generateInstallments').addEventListener('click', function() {
-        let container = document.getElementById('installmentsContainer');
-        container.innerHTML = '';
-    
-        let num = parseInt(document.getElementById('numInstallments').value);
-        let percentage = parseFloat(document.getElementById('percentage').value) || 0;
-        let remaining = parseFloat(document.getElementById('remainingAmount').value) || 0;
-    
-        if(isNaN(num) || num < 1 || remaining <= 0) {
-            container.innerHTML = `<div class="alert alert-warning">Please enter all values correctly to generate installments.</div>`;
-            return;
-        }
-    
-        let rows = '';
-        for (let i = 0; i < num; i++) {
-            rows += `
-            <div class="row installment-row mb-3" data-index="${i}">
-                <div class="col-md-3">
-                    <label class="form-label">Date</label>
-                    <input type="date" class="form-control" name="installment_date_${i}" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Installment Amount</label>
-                    <input type="number" class="form-control installment-amount" name="installment_amount_${i}" readonly />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Pay Amount</label>
-                    <input type="number" class="form-control pay-amount" name="pay_amount_${i}" min="0" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Remaining After Payment</label>
-                    <input type="number" class="form-control remaining-after" name="remaining_after_${i}" readonly />
-                </div>
-            </div>
-            `;
-        }
-        container.innerHTML = rows;
-    
-        recalculateInstallments();
-        document.querySelectorAll('.pay-amount').forEach(input => {
-            input.addEventListener('input', recalculateInstallments);
-        });
-    });
-    
-    function recalculateInstallments() {
-        let num = parseInt(document.getElementById('numInstallments').value) || 0;
-        let percentage = parseFloat(document.getElementById('percentage').value) || 0;
-        let initialRemaining = parseFloat(document.getElementById('remainingAmount').value) || 0;
-    
-        let currentRemaining = initialRemaining;
-        for (let i = 0; i < num; i++) {
-            let interest = currentRemaining * (percentage / 100);
-            let installmentAmount = currentRemaining + interest;
-    
-            let instAmountInput = document.querySelector(`[name="installment_amount_${i}"]`);
-            if (instAmountInput) instAmountInput.value = installmentAmount.toFixed(2);
-    
-            let payInput = document.querySelector(`[name="pay_amount_${i}"]`);
-            let pay = parseFloat(payInput && payInput.value) || 0;
-    
-            let remainingInput = document.querySelector(`[name="remaining_after_${i}"]`);
-            let newRemaining = installmentAmount - pay;
-            newRemaining = newRemaining < 0 ? 0 : newRemaining;
-            if (remainingInput) remainingInput.value = newRemaining.toFixed(2);
-    
-            currentRemaining = newRemaining;
-        }
-    }
-</script> --}}
 
 
 
