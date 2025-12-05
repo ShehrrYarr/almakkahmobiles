@@ -58,7 +58,7 @@
             @php
             $userId = auth()->id();
             @endphp
-@if (in_array($userId, [1, 2]))
+            @if (in_array($userId, [1, 2]))
             {{-- Expanded totals row: keeps your two totals, adds Profit + Transferred (Bank/Counter) --}}
             <div class="row ml-1 mb-2">
                 <div class="col-12 col-md-3">
@@ -195,7 +195,11 @@
             modal.show();
 
             // Fetch sale items via AJAX
-            fetch('/sales/' + saleId + '/items')
+            fetch('/sales/' + saleId + '/items', {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
@@ -215,6 +219,9 @@
                     } else {
                         document.getElementById('saleItemsModalBody').innerHTML = '<div class="text-danger">Could not load items.</div>';
                     }
+                })
+                .catch(() => {
+                    document.getElementById('saleItemsModalBody').innerHTML = '<div class="text-danger">Error loading items.</div>';
                 });
         });
     });
@@ -236,16 +243,23 @@
         fetch(actionUrl, {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+                'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                'Accept': 'application/json'
             },
             body: formData
         })
-        .then(res => res.json())
-        .then(data => {
+        .then(async res => {
+            const data = await res.json().catch(() => null);
             submitBtn.disabled = false;
             submitBtn.innerText = "Submit Return";
+
+            if (!data) {
+                alert("Unexpected server response.");
+                return;
+            }
+
             if (data.success) {
-                alert("Return processed successfully!");
+                alert(data.message || "Return processed successfully!");
                 // Close modal
                 let modalEl = document.getElementById('saleItemsModal');
                 let modal = bootstrap.Modal.getInstance(modalEl);

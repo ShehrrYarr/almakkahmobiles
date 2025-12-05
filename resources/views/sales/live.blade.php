@@ -167,7 +167,8 @@
                     </div>
                 </div>
 
-                {{-- Totals --}}
+               
+
                 <div class="totals">
                     <div class="card">
                         <div class="muted">Sales Count</div>
@@ -177,9 +178,11 @@
                         <div class="muted">Net Total (Rs.)</div>
                         <div id="totalNet" style="font-size:18px; font-weight:700;">0.00</div>
                     </div>
+                    <div class="card">
+                        <div class="muted">Profit (Rs.)</div>
+                        <div id="totalProfit" style="font-size:18px; font-weight:700;">0.00</div>
+                    </div>
                 </div>
-
-                {{-- Table --}}
                 <div style="margin-top:12px; overflow:auto;">
                     <table class="live-table" id="liveTable">
                         <thead>
@@ -219,6 +222,7 @@
   const tbody   = document.querySelector('#liveTable tbody');
   const totalCount = document.getElementById('totalCount');
   const totalNet   = document.getElementById('totalNet');
+const totalProfit= document.getElementById('totalProfit');
 
   let timer = null;
 
@@ -297,6 +301,9 @@
     totalCount.textContent = json.totals?.count ?? 0;
     totalNet.textContent   = (json.totals?.net_sum ?? 0).toFixed(2);
     lastRef.textContent    = json.refreshed_at || new Date().toLocaleTimeString();
+    if (totalProfit) {
+    totalProfit.textContent = (json.totals?.profit_sum ?? 0).toFixed(2);
+    }
   }
 
   function startAuto(){
