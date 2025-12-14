@@ -29,5 +29,13 @@ return [
         'secret' => env('AWS_SECRET_ACCESS_KEY'),
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
+    
+    'greenapi' => [
+    'url' => env('GREEN_API_URL'),
+    'instance_id' => env('GREEN_API_INSTANCE_ID'),
+    'token' => env('GREEN_API_TOKEN'),
+    'default_country' => env('GREEN_API_DEFAULT_COUNTRY', '92'),
+],
+
 
 ];
