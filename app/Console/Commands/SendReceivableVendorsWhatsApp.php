@@ -59,8 +59,8 @@ class SendReceivableVendorsWhatsApp extends Command
 
             $message =
                 "Assalam-o-Alaikum {$v->name},\n" .
-                "Your outstanding receivable is Rs {$amount}.\n" .
-                "Please confirm expected payment date. Thanks.";
+                "Ap kay Total  Rs {$amount} Bakaya hen. \n" .
+                "Baraye Meharbani Paisy Jamma karwain. Shukria.";
 
             try {
                 $greenApi->sendText($chatId, $message);
