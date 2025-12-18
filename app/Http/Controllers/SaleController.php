@@ -237,8 +237,6 @@ public function salesReport(Request $request)
     ]);
 }
 
-
-
 public function checkout(Request $request)
 {
     $data = $request->validate([
@@ -249,10 +247,10 @@ public function checkout(Request $request)
         'items.*.barcode'   => 'required|string',
         'items.*.qty'       => 'required|integer|min:1',
         'items.*.price'     => 'required|numeric|min:0',
+        'items.*.discount'  => 'nullable|numeric|min:0',  // ✅ NEW per-item discount
         'items.*.accessory' => 'nullable|string',
-        'cart_discount'     => 'nullable|numeric|min:0',
 
-        // NEW: comment on sale
+        // Comment on sale
         'comment'           => 'nullable|string|max:1000',
 
         // legacy single-payment hints (fallback if payments[] missing)
@@ -286,7 +284,7 @@ public function checkout(Request $request)
     try {
         $sale = \DB::transaction(function () use ($data, $customerName, $customerMobile, $request) {
 
-            // 1) Create Sale
+            // 1) Create Sale (totals will be updated after items)
             $sale = \App\Models\Sale::create([
                 'vendor_id'       => $data['vendor_id'] ?? null,
                 'customer_name'   => $customerName,
@@ -299,12 +297,14 @@ public function checkout(Request $request)
                 'status'          => 'pending',
                 'approved_at'     => null,
                 'approved_by'     => null,
-                // NEW: persist comment
                 'comment'         => $data['comment'] ?? null,
             ]);
 
-            // 2) Items & stock
-            $gross = 0.0;
+            // 2) Items & stock + totals with per-item discount
+            $grossBefore    = 0.0; // total before discounts
+            $discountTotal  = 0.0; // total discount (discount*qty)
+            $netTotal       = 0.0; // total after discounts
+
             foreach ($data['items'] as $item) {
                 $batch = \App\Models\AccessoryBatch::where('barcode', $item['barcode'])
                     ->lockForUpdate()
@@ -317,30 +317,35 @@ public function checkout(Request $request)
                 }
 
                 $qty       = (int) $item['qty'];
-                $unitPrice = (float) $item['price']; // or (float)$batch->selling_price
-                $line      = $unitPrice * $qty;
-                $gross    += $line;
+                $unitPrice = (float) $item['price'];
+
+                $unitDisc  = isset($item['discount']) ? (float) $item['discount'] : 0.0;
+                if ($unitDisc < 0) $unitDisc = 0.0;
+                if ($unitDisc > $unitPrice) $unitDisc = $unitPrice;
+
+                $netUnit   = max($unitPrice - $unitDisc, 0);
+                $lineNet   = $netUnit * $qty;
+
+                $grossBefore   += ($unitPrice * $qty);
+                $discountTotal += ($unitDisc * $qty);
+                $netTotal      += $lineNet;
 
                 \App\Models\SaleItem::create([
                     'sale_id'            => $sale->id,
                     'accessory_batch_id' => $batch->id,
                     'accessory_id'       => $batch->accessory_id,
                     'quantity'           => $qty,
-                    'price_per_unit'     => $unitPrice,
-                    'subtotal'           => $line,
+                    'price_per_unit'     => $netUnit,   // ✅ net after discount
+                    'subtotal'           => $lineNet,   // ✅ net line total
                     'user_id'            => auth()->id(),
                 ]);
 
                 $batch->decrement('qty_remaining', $qty);
             }
 
-            // 3) Totals
-            $discount = max(0.0, (float) ($data['cart_discount'] ?? 0));
-            if ($discount > $gross) $discount = $gross;
-            $net = $gross - $discount;
-
-            $sale->total_amount    = $net;
-            $sale->discount_amount = $discount;
+            // 3) Save totals
+            $sale->total_amount    = $netTotal;
+            $sale->discount_amount = $discountTotal; // ✅ total discount for reporting
             $sale->save();
 
             // 4) Payments for BOTH flows
@@ -439,6 +444,8 @@ public function checkout(Request $request)
                         ]);
 
                         $totalPaid = $legacyPay;
+                    } else {
+                        $totalPaid = 0.0;
                     }
                 }
 
@@ -504,7 +511,6 @@ public function checkout(Request $request)
 }
 
 
-
 // public function checkout(Request $request)
 // {
 //     $data = $request->validate([
@@ -517,6 +523,9 @@ public function checkout(Request $request)
 //         'items.*.price'     => 'required|numeric|min:0',
 //         'items.*.accessory' => 'nullable|string',
 //         'cart_discount'     => 'nullable|numeric|min:0',
+
+//         // NEW: comment on sale
+//         'comment'           => 'nullable|string|max:1000',
 
 //         // legacy single-payment hints (fallback if payments[] missing)
 //         'pay_amount'        => 'nullable|numeric|min:0',
@@ -532,7 +541,7 @@ public function checkout(Request $request)
 //         'payments.*.reference_no' => 'nullable|string|max:255',
 //     ]);
 
-//     // Walk‑in normalization
+//     // Walk-in normalization
 //     $customerName   = $data['customer_name']   ?? null;
 //     $customerMobile = $data['customer_mobile'] ?? null;
 
@@ -562,6 +571,8 @@ public function checkout(Request $request)
 //                 'status'          => 'pending',
 //                 'approved_at'     => null,
 //                 'approved_by'     => null,
+//                 // NEW: persist comment
+//                 'comment'         => $data['comment'] ?? null,
 //             ]);
 
 //             // 2) Items & stock
@@ -707,9 +718,8 @@ public function checkout(Request $request)
 //                 $sale->save();
 
 //             } else {
-//                 // Walk‑in: MUST record a full payment; if none provided, synthesize one
+//                 // Walk-in: MUST record a full payment; if none provided, synthesize one
 //                 if ($hasPayments) {
-//                     // Clamp total to net; ignore extra
 //                     $soFar = 0.0;
 //                     foreach ($paymentsInput as $p) {
 //                         $method = $p['method'] ?? 'counter';
@@ -736,7 +746,6 @@ public function checkout(Request $request)
 //                         $soFar += $use;
 //                     }
 //                 } else {
-//                     // Fallback: single counter payment for full net (shouldn't happen with our JS)
 //                     \App\Models\SalePayment::create([
 //                         'sale_id'      => $sale->id,
 //                         'method'       => 'counter',
@@ -748,10 +757,8 @@ public function checkout(Request $request)
 //                     ]);
 //                 }
 
-//                 // Walk‑in considered fully paid
 //                 $sale->pay_amount = $sale->total_amount;
 //                 $sale->save();
-//                 // No Accounts entries for walk‑ins
 //             }
 
 //             return $sale;
@@ -767,7 +774,6 @@ public function checkout(Request $request)
 //         return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
 //     }
 // }
-
 
 
 
