@@ -221,6 +221,7 @@
                                     <tr>
                                         <th>Created At</th>
                                         <th>Owed Amount</th>
+                                        <th>WhatsApp Send</th>
                                         <th>Accounts</th>
                                         <th>Picture</th>
 
@@ -240,6 +241,34 @@
                                         <tr>
                                             <td>{{ $key->created_at }}</td>
                                             <td>{{ $key->amount_owed }}</td>
+                                            @php
+                                            // 1) normalize number to international format (Pakistan)
+                                            $mobile = preg_replace('/\D+/', '', $key->mobile_no ?? '');
+                                            
+                                            // If number starts with 0, convert to 92xxxxxxxxxx
+                                            if (str_starts_with($mobile, '0')) {
+                                            $mobile = '92' . substr($mobile, 1);
+                                            }
+                                            
+                                            // If number starts with 3xxxxxxxxx (10 digits), convert to 92 + number
+                                            if (strlen($mobile) === 10 && str_starts_with($mobile, '3')) {
+                                            $mobile = '92' . $mobile;
+                                            }
+                                            
+                                            $amount = number_format((float)$key->amount_owed, 0);
+                                            
+                                            $msg = "Assalam-o-Alaikum {$key->name}, please pay your pending amount Rs {$amount}. Thanks - Almakkah Mobiles";
+                                            $waUrl = "https://wa.me/{$mobile}?text=" . urlencode($msg);
+                                            @endphp
+                                            <td>
+                                                @if(!empty($mobile) && strlen($mobile) >= 11)
+                                                <a href="{{ $waUrl }}" target="_blank" class="btn btn-sm btn-success" title="Send WhatsApp">
+                                                    <i class="fa fa-whatsapp"></i>
+                                                </a>
+                                                @else
+                                                <span class="text-danger">No valid #</span>
+                                                @endif
+                                            </td>
                                             <td>
                                                 <a href="{{ route('showAccounts', $key->id) }}" class="btn btn-sm btn-primary">
                                                     <i class="fa fa-book"></i>
