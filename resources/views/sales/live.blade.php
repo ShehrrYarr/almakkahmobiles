@@ -112,6 +112,8 @@
         padding: 8px 14px;
         border-radius: 8px;
         cursor: pointer;
+        display: inline-block;
+        text-decoration: none;
     }
 
     .btn.secondary {
@@ -121,6 +123,17 @@
     .btn:disabled {
         opacity: .6;
         cursor: not-allowed;
+    }
+
+    details.invoice-list summary {
+        cursor: pointer;
+        color: #0ea5e9;
+        font-weight: 600;
+    }
+
+    details.invoice-list a {
+        display: block;
+        margin-top: 6px;
     }
 </style>
 
@@ -138,7 +151,6 @@
                     <div class="muted">Auto-refreshes every 10s • Last refresh: <span id="lastRefresh">—</span></div>
                 </div>
 
-                {{-- Filters --}}
                 <div class="filters">
                     <div class="form-group">
                         <label>From (YYYY-MM-DD)</label>
@@ -167,11 +179,9 @@
                     </div>
                 </div>
 
-               
-
                 <div class="totals">
                     <div class="card">
-                        <div class="muted">Sales Count</div>
+                        <div class="muted">Rows Count</div>
                         <div id="totalCount" style="font-size:18px; font-weight:700;">0</div>
                     </div>
                     <div class="card">
@@ -183,19 +193,20 @@
                         <div id="totalProfit" style="font-size:18px; font-weight:700;">0.00</div>
                     </div>
                 </div>
+
                 <div style="margin-top:12px; overflow:auto;">
                     <table class="live-table" id="liveTable">
                         <thead>
                             <tr>
-                                <th>Sale #</th>
-                                <th>Date</th>
+                                <th>ID</th>
+                                <th>Date (Latest)</th>
                                 <th>Who</th>
                                 <th>Total (Net)</th>
                                 <th>Payments</th>
-                                <th>Items</th>
+                                <th>Items / Sales</th>
                                 <th>Status</th>
                                 <th>By</th>
-                                <th>Receipt</th>
+                                <th>Receipt / Invoices</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -222,7 +233,7 @@
   const tbody   = document.querySelector('#liveTable tbody');
   const totalCount = document.getElementById('totalCount');
   const totalNet   = document.getElementById('totalNet');
-const totalProfit= document.getElementById('totalProfit');
+  const totalProfit= document.getElementById('totalProfit');
 
   let timer = null;
 
@@ -245,42 +256,122 @@ const totalProfit= document.getElementById('totalProfit');
     return `<span class="badge badge-pending">Pending</span>`;
   }
 
-  function renderRows(rows){
-    tbody.innerHTML = '';
-    rows.forEach(r => {
-      const payHtml = (r.payments || []).map(p => {
-        const m = p.method === 'bank' ? 'Bank' : 'Counter';
-        const bank = p.bank ? ` — ${p.bank}` : '';
-        const ref  = p.ref ? ` (Ref: ${p.ref})` : '';
-        return `<div>${m}${bank}: Rs. ${fmt(p.amount)}${ref}</div>`;
-      }).join('');
-
-      const itemsInfo = `${r.items_count} item(s)` + (r.comment ? `<div class="muted">Note: ${escapeHtml(r.comment).slice(0,120)}</div>` : '');
-
-      tbody.insertAdjacentHTML('beforeend', `
-        <tr>
-          <td>${r.id}</td>
-          <td>${r.sale_date || '-'}</td>
-          <td>${r.who || '-'}</td>
-          <td><strong>Rs. ${fmt(r.total)}</strong></td>
-          <td>${payHtml || '<span class="muted">—</span>'}</td>
-          <td>${itemsInfo}</td>
-          <td>${badge(r.status)}</td>
-          <td>${r.user || '-'}</td>
-          <td><a class="btn secondary" target="_blank" href="${r.invoice_url}">Receipt</a></td>
-        </tr>
-      `);
-    });
-  }
-
   function escapeHtml(s){
-    return String(s)
+    return String(s ?? '')
       .replaceAll('&','&amp;')
       .replaceAll('<','&lt;')
       .replaceAll('>','&gt;')
       .replaceAll('"','&quot;')
       .replaceAll("'",'&#039;');
   }
+
+  function paymentsHtml(payments){
+    const list = (payments || []).map(p => {
+      const m = p.method === 'bank' ? 'Bank' : 'Counter';
+      const bank = p.bank ? ` — ${escapeHtml(p.bank)}` : '';
+      const ref  = p.ref ? ` (Ref: ${escapeHtml(p.ref)})` : '';
+      return `<div>${m}${bank}: Rs. ${fmt(p.amount)}${ref}</div>`;
+    }).join('');
+    return list || '<span class="muted">—</span>';
+  }
+
+  function invoicesHtml(r){
+    // Vendor grouped row: r.invoices exists
+    if (Array.isArray(r.invoices) && r.invoices.length) {
+      const inv = r.invoices
+        .slice(0, 12) // avoid too many
+        .map(x => `<a class="btn secondary" target="_blank" href="${x.url}">#${x.id}</a>`)
+        .join(' ');
+
+      const extra = r.invoices.length > 12 ? `<div class="muted">+${r.invoices.length - 12} more...</div>` : '';
+
+      return `
+        <details class="invoice-list">
+          <summary>Invoices (${r.invoices.length})</summary>
+          <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+            ${inv}
+          </div>
+          ${extra}
+        </details>
+      `;
+    }
+
+    // Normal sale row:
+    if (r.invoice_url) {
+      return `<a class="btn secondary" target="_blank" href="${r.invoice_url}">Receipt</a>`;
+    }
+    return '<span class="muted">—</span>';
+  }
+
+  function renderRows(rows){
+tbody.innerHTML = '';
+
+rows.forEach(r => {
+const isVendorGroup = r.type === 'vendor_group';
+
+const payHtml = (r.payments || []).map(p => {
+const m = p.method === 'bank' ? 'Bank' : 'Counter';
+const bank = p.bank ? ` — ${escapeHtml(p.bank)}` : '';
+const ref = p.ref ? ` (Ref: ${escapeHtml(p.ref)})` : '';
+return `<div>${m}${bank}: Rs. ${fmt(p.amount)}${ref}</div>`;
+}).join('') || '<span class="muted">—</span>';
+
+// ✅ Date column: for vendor show range, for walk-in show sale date
+const dateHtml = isVendorGroup
+? `<div>${escapeHtml(r.date_from || '-')} <span class="muted">→</span> ${escapeHtml(r.date_to || '-')}</div>`
+: escapeHtml(r.sale_date || '-');
+
+// ✅ Items/Sales info
+const itemsInfo = isVendorGroup
+? `${Number(r.sales_count || 0)} sale(s) • ${Number(r.items_count || 0)} item line(s)`
+: `${Number(r.items_count || 0)} item(s)` + (r.comment ? `<div class="muted">Note: ${escapeHtml(r.comment).slice(0,120)}
+</div>` : '');
+
+// ✅ Receipt column:
+// - vendor grouped => show invoice list with IDs + dates
+// - walk-in => show Receipt button
+let receiptHtml = '<span class="muted">—</span>';
+
+if (isVendorGroup && Array.isArray(r.invoices) && r.invoices.length) {
+const invList = r.invoices.slice(0, 15).map(inv => {
+return `<div style="margin-top:6px;">
+    <a class="btn secondary" target="_blank" href="${inv.url}">
+        #${inv.id}
+    </a>
+    <span class="muted" style="margin-left:6px;">${escapeHtml(inv.date || '')}</span>
+</div>`;
+}).join('');
+
+const more = r.invoices.length > 15
+? `<div class="muted" style="margin-top:6px;">+${r.invoices.length - 15} more...</div>`
+: '';
+
+receiptHtml = `
+<details class="invoice-list">
+    <summary>Invoices (${r.invoices.length})</summary>
+    ${invList}
+    ${more}
+</details>
+`;
+} else if (r.invoice_url) {
+receiptHtml = `<a class="btn secondary" target="_blank" href="${r.invoice_url}">Receipt</a>`;
+}
+
+tbody.insertAdjacentHTML('beforeend', `
+<tr>
+    <td>${escapeHtml(r.id)}</td>
+    <td>${dateHtml}</td>
+    <td>${escapeHtml(r.who || '-')}</td>
+    <td><strong>Rs. ${fmt(r.total)}</strong></td>
+    <td>${payHtml}</td>
+    <td>${itemsInfo}</td>
+    <td>${badge(r.status)}</td>
+    <td>${escapeHtml(r.user || '-')}</td>
+    <td>${receiptHtml}</td>
+</tr>
+`);
+});
+}
 
   async function fetchData(){
     const params = new URLSearchParams({
@@ -289,43 +380,36 @@ const totalProfit= document.getElementById('totalProfit');
     });
     if (vendEl.value) params.append('vendor_id', vendEl.value);
 
-    const res = await fetch(`{{ route('sales.live.feed') }}?${params.toString()}`, { headers: { 'Accept': 'application/json' }});
+    const res = await fetch(`{{ route('sales.live.feed') }}?${params.toString()}`, {
+      headers: { 'Accept': 'application/json' }
+    });
+
     if (!res.ok) {
       const t = await res.text();
       throw new Error(`HTTP ${res.status}: ${t.slice(0,200)}`);
     }
+
     const json = await res.json();
     if (!json.success) throw new Error(json.message || 'Failed to load');
 
     renderRows(json.data || []);
     totalCount.textContent = json.totals?.count ?? 0;
     totalNet.textContent   = (json.totals?.net_sum ?? 0).toFixed(2);
+    totalProfit.textContent= (json.totals?.profit_sum ?? 0).toFixed(2);
     lastRef.textContent    = json.refreshed_at || new Date().toLocaleTimeString();
-    if (totalProfit) {
-    totalProfit.textContent = (json.totals?.profit_sum ?? 0).toFixed(2);
-    }
   }
 
   function startAuto(){
     if (timer) clearInterval(timer);
     timer = setInterval(() => {
       fetchData().catch(err => console.error(err));
-    }, 10000); // 10s
+    }, 10000);
   }
 
-  // Wire up UI
-  applyBtn.addEventListener('click', () => {
-    fetchData().catch(err => alert(err.message));
-  });
-  refreshBtn.addEventListener('click', () => {
-    fetchData().catch(err => alert(err.message));
-  });
-  todayBtn.addEventListener('click', () => {
-    setToday();
-    fetchData().catch(err => alert(err.message));
-  });
+  applyBtn.addEventListener('click', () => fetchData().catch(err => alert(err.message)));
+  refreshBtn.addEventListener('click', () => fetchData().catch(err => alert(err.message)));
+  todayBtn.addEventListener('click', () => { setToday(); fetchData().catch(err => alert(err.message)); });
 
-  // Init: ensure defaults and load
   if (!startEl.value || !endEl.value) setToday();
   fetchData().catch(err => console.error(err)).finally(startAuto);
 })();
