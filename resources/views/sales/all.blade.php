@@ -277,6 +277,14 @@
         });
     });
 });
+
+$(document).ready(function () {
+$('#loginTable').DataTable({
+order: [
+[0, 'desc']
+]
+});
+});
 </script>
 
 @endsection
