@@ -231,19 +231,24 @@
 
         <div class="divider"></div>
 
-        @php
-        // Subtotal BEFORE discount
-        $grossTotal = $sale->items->sum('subtotal');
-        $discount = (float) ($sale->discount_amount ?? 0);
-        $netTotal = max($grossTotal - $discount, 0);
-
-        // Only vendors can pay on invoice
-        $isVendorSale = !empty($sale->vendor);
-        $paid = $isVendorSale ? (float) ($sale->pay_amount ?? 0) : 0.0;
-        if ($paid < 0) $paid=0.0; if ($paid> $netTotal) $paid = $netTotal;
-
-            $remaining = $isVendorSale ? max($netTotal - $paid, 0) : 0.0;
-            @endphp
+       @php
+    // ✅ Because SaleItem.subtotal is already NET (after discount)
+    $netTotal = (float) ($sale->total_amount ?? $sale->items->sum('subtotal'));
+    
+    // Total discount stored on sale (sum of per-item discounts)
+    $discount = (float) ($sale->discount_amount ?? 0);
+    
+    // Gross before discount
+    $grossTotal = $netTotal + $discount;
+    
+    // Only vendors can pay on invoice
+    $isVendorSale = !empty($sale->vendor);
+    
+    $paid = $isVendorSale ? (float) ($sale->pay_amount ?? 0) : 0.0;
+    if ($paid < 0) $paid=0.0; if ($paid> $netTotal) $paid = $netTotal;
+    
+        $remaining = $isVendorSale ? max($netTotal - $paid, 0) : 0.0;
+        @endphp
 
             <table style="width:100%;">
                 <tr>
