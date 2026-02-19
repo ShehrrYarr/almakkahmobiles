@@ -893,13 +893,16 @@ public function allSales(Request $request)
         $end   = $request->input('end_date')   . ' 23:59:59';
     }
 
-    // 1) Paginated sales for listing (prevents memory blowups)
+    /**
+     * 1) Paginated sales for listing (prevents memory blowups)
+     * Keep relations only if your view needs them.
+     */
     $salesQuery = Sale::query()
         ->with([
             'vendor',
             'user',
-            'items.batch',
-            'items.returnItems',
+            'items.Batch',   // IMPORTANT: your FK is accessory_batch_id
+            'items.returnItems',      // sale_return_items via sale_item_id
             'payments',
         ])
         ->when($start && $end, fn ($q) => $q->whereBetween('sale_date', [$start, $end]))
@@ -907,10 +910,74 @@ public function allSales(Request $request)
 
     $sales = $salesQuery->paginate(1000)->withQueryString();
 
+    /**
+     * 2) Totals in DB
+     */
+    $totalSellingPrice = (float) Sale::query()
+        ->when($start && $end, fn ($q) => $q->whereBetween('sale_date', [$start, $end]))
+        ->sum('total_amount');
 
+    // vendor => pay_amount, walk-in => total_amount
+    $totalPaidPrice = (float) Sale::query()
+        ->when($start && $end, fn ($q) => $q->whereBetween('sale_date', [$start, $end]))
+        ->selectRaw("
+            SUM(
+                CASE
+                    WHEN vendor_id IS NOT NULL THEN COALESCE(pay_amount, 0)
+                    ELSE COALESCE(total_amount, 0)
+                END
+            ) as total_paid
+        ")
+        ->value('total_paid');
+
+    // Payments aggregation (bank vs counter)
+    $paymentsAgg = DB::table('sale_payments as sp')
+        ->join('sales as s', 's.id', '=', 'sp.sale_id')
+        ->when($start && $end, fn ($q) => $q->whereBetween('s.sale_date', [$start, $end]))
+        ->selectRaw("
+            SUM(CASE WHEN sp.method = 'bank' THEN COALESCE(sp.amount,0) ELSE 0 END) as bank_total,
+            SUM(CASE WHEN sp.method = 'counter' THEN COALESCE(sp.amount,0) ELSE 0 END) as counter_total
+        ")
+        ->first();
+
+    $totalTransferredBank    = (float) ($paymentsAgg->bank_total ?? 0);
+    $totalTransferredCounter = (float) ($paymentsAgg->counter_total ?? 0);
+
+    /**
+     * 3) Total Profit (net of returns) - using your schema
+     * profit = SUM( max(0, sold - returned) * (sell_per - purchase_price) )
+     */
+
+    // returned qty per sale_item
+    $returnsSub = DB::table('sale_return_items')
+        ->selectRaw('sale_item_id, SUM(quantity) as returned_qty')
+        ->groupBy('sale_item_id');
+
+    $profitRow = DB::table('sale_items as si')
+        ->join('sales as s', 's.id', '=', 'si.sale_id')
+        ->leftJoin('accessory_batches as ab', 'ab.id', '=', 'si.accessory_batch_id')
+        ->leftJoinSub($returnsSub, 'r', function ($join) {
+            $join->on('r.sale_item_id', '=', 'si.id');
+        })
+        ->when($start && $end, fn ($q) => $q->whereBetween('s.sale_date', [$start, $end]))
+        ->selectRaw("
+            SUM(
+                GREATEST(0, COALESCE(si.quantity,0) - COALESCE(r.returned_qty,0))
+                * (COALESCE(si.price_per_unit,0) - COALESCE(ab.purchase_price,0))
+            ) as total_profit
+        ")
+        ->first();
+
+    $totalProfit = (float) ($profitRow->total_profit ?? 0);
 
     return view('sales.all', compact(
         'sales',
+        'totalSellingPrice',
+        'totalPaidPrice',
+        'totalProfit',
+        'totalTransferredBank',
+        'totalTransferredCounter',
+        'userId'
     ));
 }
 
