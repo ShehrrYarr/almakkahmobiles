@@ -956,7 +956,8 @@ public function allSales(Request $request)
     });
 
     // New: Transferred amounts (bank vs counter) from sale_payments
-    $allPayments = $sales->flatMap->payments;
+    // $allPayments = $sales->flatMap->payments;
+    $allPayments = 0;
     $totalTransferredBank    = (float) $allPayments->where('method', 'bank')->sum('amount');
     $totalTransferredCounter = (float) $allPayments->where('method', 'counter')->sum('amount');
 
