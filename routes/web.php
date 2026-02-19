@@ -162,6 +162,9 @@ Route::get('/reports/sales', [\App\Http\Controllers\SaleController::class, 'sale
 Route::get('/api/vendor-balance/{id}', [VendorController::class, 'getVBalance']);
 
 
+//Profit only main account py show ho
+// ik new tab ajayE JAHAN ACCOUNTS KI ENTRIES AJAIN
+//Vendor ki profit report sales k hisab sy  aye 
 
 
 

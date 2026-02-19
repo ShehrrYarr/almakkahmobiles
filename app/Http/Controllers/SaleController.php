@@ -929,7 +929,7 @@ public function allSales(Request $request)
         $query->whereBetween('sale_date', [$start, $end]);
     }
 
-    $sales = $query->orderByDesc('id')->get();
+    $sales = $query->orderByDesc('id')->paginate(100);
 
     // Existing totals
     $totalSellingPrice = (float) $sales->sum('total_amount');
