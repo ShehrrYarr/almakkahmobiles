@@ -62,20 +62,20 @@
             {{-- Expanded totals row: keeps your two totals, adds Profit + Transferred (Bank/Counter) --}}
             <div class="row ml-1 mb-2">
                 <div class="col-12 col-md-3">
-                    {{-- <h5>Total Selling Price: Rs. {{ number_format($totalSellingPrice, 2) }}</h5> --}}
+                    <h5>Total Selling Price: Rs. {{ number_format($totalSellingPrice, 2) }}</h5>
                 </div>
                 <div class="col-12 col-md-3">
-                    {{-- <h5>Total Paid Price: Rs. {{ number_format($totalPaidPrice, 2) }}</h5> --}}
+                    <h5>Total Paid Price: Rs. {{ number_format($totalPaidPrice, 2) }}</h5>
                 </div>
                 <div class="col-12 col-md-3">
-                    {{-- <h5>Total Profit: Rs. {{ number_format($totalProfit ?? 0, 2) }}</h5> --}}
+                    <h5>Total Profit: Rs. {{ number_format($totalProfit ?? 0, 2) }}</h5>
                 </div>
                 <div class="col-12 col-md-3">
                     <h5 class="mb-0">Transferred</h5>
                     <div class="small">
-                        {{-- Bank: <strong>Rs. {{ number_format($totalTransferredBank ?? 0, 2) }}</strong> --}}
+                        Bank: <strong>Rs. {{ number_format($totalTransferredBank ?? 0, 2) }}</strong>
                         &nbsp;|&nbsp;
-                        {{-- Counter: <strong>Rs. {{ number_format($totalTransferredCounter ?? 0, 2) }}</strong> --}}
+                        Counter: <strong>Rs. {{ number_format($totalTransferredCounter ?? 0, 2) }}</strong>
                     </div>
                 </div>
             </div>

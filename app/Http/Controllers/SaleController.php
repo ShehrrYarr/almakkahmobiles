@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+// use Illuminate\Http\Request;
 use Illuminate\Http\Request;
 use App\Models\vendor;
 use App\Models\AccessoryBatch;
@@ -876,18 +877,59 @@ public function approved(Request $request)
 
 
 
-// public function allSales()
-// {
-//     // You may want to paginate this if you have many sales
-//     $sales = \App\Models\Sale::with(['vendor', 'items.batch.accessory', 'user'])->orderByDesc('id')->get();
-//     return view('sales.all', compact('sales'));
-// }
+
+
+
+public function allSales(Request $request)
+{
+    $userId = auth()->id();
+
+    // Date filter (inclusive)
+    $start = null;
+    $end   = null;
+
+    if ($request->filled('start_date') && $request->filled('end_date')) {
+        $start = $request->input('start_date') . ' 00:00:00';
+        $end   = $request->input('end_date')   . ' 23:59:59';
+    }
+
+    // 1) Paginated sales for listing (prevents memory blowups)
+    $salesQuery = Sale::query()
+        ->with([
+            'vendor',
+            'user',
+            'items.batch',
+            'items.returnItems',
+            'payments',
+        ])
+        ->when($start && $end, fn ($q) => $q->whereBetween('sale_date', [$start, $end]))
+        ->orderByDesc('id');
+
+    $sales = $salesQuery->paginate(1000)->withQueryString();
+
+
+
+    return view('sales.all', compact(
+        'sales',
+    ));
+}
+
+
+
 
 // public function allSales(Request $request)
 // {
-//     $query = \App\Models\Sale::with(['vendor', 'items.batch.accessory', 'user']);
+//     $userId = auth()->id();
+//     // Eager-load everything needed (incl. returnItems instead of returns)
+//     $query = \App\Models\Sale::with([
+//         'vendor',
+//         'items.batch',        // for cost (purchase_price)
+//         'items.returnItems',  // for returned quantities
+//         'user',
+//         'payments',           // for bank/counter split
+//     ]);
 
-//     // Filter by date range if provided
+//     // Optional date filter (inclusive)
 //     if ($request->filled('start_date') && $request->filled('end_date')) {
 //         $start = $request->input('start_date') . ' 00:00:00';
 //         $end   = $request->input('end_date')   . ' 23:59:59';
@@ -896,80 +938,44 @@ public function approved(Request $request)
 
 //     $sales = $query->orderByDesc('id')->get();
 
-//     // Totals
-//     $totalSellingPrice = $sales->sum('total_amount');
+//     // Existing totals
+//     $totalSellingPrice = (float) $sales->sum('total_amount');
 
-//     $totalPaidPrice = $sales->sum(function ($sale) {
-//         // Walk-in pays full; vendor pays whatever was recorded as pay_amount
+//     // Keep your existing "Paid" logic (vendor uses pay_amount, walk-in equals total)
+//     $totalPaidPrice = (float) $sales->sum(function ($sale) {
 //         return $sale->vendor
 //             ? (float) ($sale->pay_amount ?? 0)
 //             : (float) $sale->total_amount;
 //     });
 
-//     return view('sales.all', compact('sales', 'totalSellingPrice', 'totalPaidPrice'));
+//     // New: Total Profit (net of returns): (sell - cost) * (sold - returned)
+//     $totalProfit = (float) $sales->sum(function ($sale) {
+//         return $sale->items->sum(function ($item) {
+//             $soldQty     = (int) $item->quantity;
+//             $returnedQty = (int) ($item->returnItems?->sum('quantity') ?? 0);
+//             $netQty      = max(0, $soldQty - $returnedQty);
+
+//             $sellPer = (float) $item->price_per_unit;
+//             $costPer = (float) ($item->batch?->purchase_price ?? 0);
+
+//             return $netQty * ($sellPer - $costPer);
+//         });
+//     });
+
+//     // New: Transferred amounts (bank vs counter) from sale_payments
+//     $allPayments = $sales->flatMap->payments;
+//     $totalTransferredBank    = (float) $allPayments->where('method', 'bank')->sum('amount');
+//     $totalTransferredCounter = (float) $allPayments->where('method', 'counter')->sum('amount');
+
+//     return view('sales.all', compact(
+//         'sales',
+//         'totalSellingPrice',
+//         'totalPaidPrice',
+//         'totalProfit',
+//         'totalTransferredBank',
+//         'totalTransferredCounter','userId'
+//     ));
 // }
-
-
-public function allSales(Request $request)
-{
-    $userId = auth()->id();
-    // Eager-load everything needed (incl. returnItems instead of returns)
-    $query = \App\Models\Sale::with([
-        'vendor',
-        'items.batch',        // for cost (purchase_price)
-        'items.returnItems',  // for returned quantities
-        'user',
-        'payments',           // for bank/counter split
-    ]);
-
-    // Optional date filter (inclusive)
-    if ($request->filled('start_date') && $request->filled('end_date')) {
-        $start = $request->input('start_date') . ' 00:00:00';
-        $end   = $request->input('end_date')   . ' 23:59:59';
-        $query->whereBetween('sale_date', [$start, $end]);
-    }
-
-    $sales = $query->orderByDesc('id')->paginate(100);
-
-    // Existing totals
-    $totalSellingPrice = (float) $sales->sum('total_amount');
-
-    // Keep your existing "Paid" logic (vendor uses pay_amount, walk-in equals total)
-    $totalPaidPrice = (float) $sales->sum(function ($sale) {
-        return $sale->vendor
-            ? (float) ($sale->pay_amount ?? 0)
-            : (float) $sale->total_amount;
-    });
-
-    // New: Total Profit (net of returns): (sell - cost) * (sold - returned)
-    $totalProfit = (float) $sales->sum(function ($sale) {
-        return $sale->items->sum(function ($item) {
-            $soldQty     = (int) $item->quantity;
-            $returnedQty = (int) ($item->returnItems?->sum('quantity') ?? 0);
-            $netQty      = max(0, $soldQty - $returnedQty);
-
-            $sellPer = (float) $item->price_per_unit;
-            $costPer = (float) ($item->batch?->purchase_price ?? 0);
-
-            return $netQty * ($sellPer - $costPer);
-        });
-    });
-
-    // New: Transferred amounts (bank vs counter) from sale_payments
-    // $allPayments = $sales->flatMap->payments;
-    $allPayments = 0;
-    $totalTransferredBank    = (float) $allPayments->where('method', 'bank')->sum('amount');
-    $totalTransferredCounter = (float) $allPayments->where('method', 'counter')->sum('amount');
-
-    return view('sales.all', compact(
-        'sales',
-        'totalSellingPrice',
-        'totalPaidPrice',
-        'totalProfit',
-        'totalTransferredBank',
-        'totalTransferredCounter','userId'
-    ));
-}
 
 
 
