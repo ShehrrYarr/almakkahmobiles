@@ -227,6 +227,34 @@
 
                                         <div class="stats-amount mr-3">
                                             <h3 class="heading-text text-bold-600">
+                                                Rs.{{ number_format($todayTotalDebit) }}</h3>
+                                            <p class="sub-heading">Today's Total Debit</p>
+                                        </div>
+                                        <!-- <span class="inc-dec-percentage">
+                                                                                        <small class="success"><i class="fa fa-long-arrow-up"></i> 5.2%</small>
+                                                                                    </span> -->
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">
+                                                Rs.{{ number_format($todayTotalCredit) }}</h3>
+                                            <p class="sub-heading">Today's Total Credit</p>
+                                        </div>
+                                        <!-- <span class="inc-dec-percentage">
+                                                                                        <small class="success"><i class="fa fa-long-arrow-up"></i> 5.2%</small>
+                                                                                    </span> -->
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">
                                                 Rs.{{ number_format($totalPendingSales) }}</h3>
                                             <p class="sub-heading">Total Pending Sales</p>
                                         </div>
