@@ -74,55 +74,39 @@
             </div>
 
             <div class="row">
-                {{-- ===== LEFT COLUMN ===== --}}
-                <div class="col-lg-7">
+                {{-- ===== LEFT COLUMN (compact) ===== --}}
+                <div class="col-lg-4">
 
                     {{-- Customer / Vendor --}}
                     <div class="card shadow-sm mb-2">
-                        <div class="card-header py-2 bg-white border-bottom">
-                            <h6 class="mb-0 font-weight-bold"><i class="fa fa-user text-secondary mr-1"></i> Customer / Vendor</h6>
+                        <div class="card-header py-1 bg-white border-bottom">
+                            <span class="small font-weight-bold"><i class="fa fa-user text-secondary mr-1"></i> Customer / Vendor</span>
                         </div>
-                        <div class="card-body pb-2">
+                        <div class="card-body p-2">
                             <form method="POST" action="{{ route('sales.store') }}" id="sale-meta-form">
                                 @csrf
-                                <div class="form-group mb-2">
-                                    <label class="small font-weight-bold text-muted mb-1">Vendor <span class="font-weight-normal">(optional)</span></label>
-                                    <select name="vendor_id" id="vendor_id" class="form-control">
-                                        <option value="">Walk-in Customer</option>
-                                        @foreach($vendors as $vendor)
-                                        <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
-                                        @endforeach
-                                    </select>
+                                <select name="vendor_id" id="vendor_id" class="form-control form-control-sm mb-1">
+                                    <option value="">Walk-in Customer</option>
+                                    @foreach($vendors as $vendor)
+                                    <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
+                                    @endforeach
+                                </select>
+                                <input type="text" name="customer_name" id="customer_name" class="form-control form-control-sm mb-1" placeholder="Customer name (optional)">
+                                <div id="customer_mobile_row" style="display:none;">
+                                    <input type="text" name="customer_mobile" id="customer_mobile" class="form-control form-control-sm mb-1" placeholder="Mobile: 923XXXXXXXXX">
                                 </div>
-                                <div class="form-group mb-2">
-                                    <label class="small font-weight-bold text-muted mb-1">Customer Name</label>
-                                    <input type="text" name="customer_name" id="customer_name" class="form-control" placeholder="Walk-in (leave blank if not needed)">
-                                </div>
-                                <div class="form-group mb-2" id="customer_mobile_row" style="display:none;">
-                                    <label class="small font-weight-bold text-muted mb-1">Customer Mobile</label>
-                                    <input type="text" name="customer_mobile" id="customer_mobile" class="form-control" placeholder="923XXXXXXXXX">
-                                </div>
-                                <div class="form-group mb-0">
-                                    <label class="small font-weight-bold text-muted mb-1">Comment <span class="font-weight-normal">(optional)</span></label>
-                                    <textarea id="sale_comment" name="comment" rows="2" class="form-control" placeholder="Special request, delivery note…"></textarea>
-                                </div>
+                                <textarea id="sale_comment" name="comment" rows="1" class="form-control form-control-sm" placeholder="Comment (optional)"></textarea>
                             </form>
                         </div>
                     </div>
 
-                    {{-- Vendor balance (admin only, shown when vendor selected) --}}
+                    {{-- Vendor balance (shown when vendor selected) --}}
                     <div id="vendor-extra-fields" style="display:none;">
                         <div class="card shadow-sm mb-2 border-primary">
-                            <div class="card-body py-2">
-                                <div class="row align-items-center">
-                                    <div class="col-sm-6 mb-2 mb-sm-0">
-                                        <label class="small font-weight-bold text-muted mb-1">Amount Vendor Will Pay <span class="font-weight-normal">(optional)</span></label>
-                                        <input type="number" min="0" name="pay_amount" id="pay_amount" class="form-control" placeholder="0">
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <label class="small font-weight-bold text-muted mb-1">Current Vendor Balance</label>
-                                        <input type="text" id="vendor_balance" class="form-control font-weight-bold text-primary" readonly>
-                                    </div>
+                            <div class="card-body p-2">
+                                <div class="d-flex gap-2" style="gap:6px;">
+                                    <input type="number" min="0" name="pay_amount" id="pay_amount" class="form-control form-control-sm" placeholder="Pay amount">
+                                    <input type="text" id="vendor_balance" class="form-control form-control-sm font-weight-bold text-primary" placeholder="Balance" readonly>
                                 </div>
                             </div>
                         </div>
@@ -130,40 +114,31 @@
 
                     {{-- Scan / Add --}}
                     <div class="card shadow-sm mb-2">
-                        <div class="card-header py-2 bg-white border-bottom">
-                            <h6 class="mb-0 font-weight-bold"><i class="fa fa-barcode text-secondary mr-1"></i> Add Items</h6>
+                        <div class="card-header py-1 bg-white border-bottom">
+                            <span class="small font-weight-bold"><i class="fa fa-barcode text-secondary mr-1"></i> Add Items</span>
                         </div>
-                        <div class="card-body pb-2">
-                            {{-- Barcode --}}
-                            <div class="form-group mb-2">
-                                <label class="small font-weight-bold text-muted mb-1">Scan Barcode</label>
-                                <div class="input-group">
-                                    <input type="text" id="barcode_search" class="form-control" placeholder="Scan or type barcode…" autocomplete="off">
-                                    <div class="input-group-append">
-                                        <button type="button" class="btn btn-warning font-weight-bold" onclick="scanBarcode()">
-                                            <i class="fa fa-search mr-1"></i> Scan / Add
-                                        </button>
-                                    </div>
+                        <div class="card-body p-2">
+                            <div class="input-group input-group-sm mb-1">
+                                <input type="text" id="barcode_search" class="form-control" placeholder="Scan barcode…" autocomplete="off">
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-warning btn-sm font-weight-bold" onclick="scanBarcode()">
+                                        <i class="fa fa-search"></i> Scan
+                                    </button>
                                 </div>
                             </div>
-
-                            {{-- Manual select --}}
-                            <div class="form-group mb-0">
-                                <label class="small font-weight-bold text-muted mb-1">Or Select Manually</label>
-                                <div class="input-group">
-                                    <select id="manual_batch_select" class="form-control">
-                                        <option value="">Select Accessory Batch</option>
-                                        @foreach($batches as $batch)
-                                        <option value="{{ $batch->barcode }}">
-                                            {{ $batch->barcode }} — {{ $batch->accessory->name }} (Remaining: {{ $batch->qty_remaining }}){{ $batch->accessory->description ? ' — '.$batch->accessory->description : '' }}
-                                        </option>
-                                        @endforeach
-                                    </select>
-                                    <div class="input-group-append">
-                                        <button type="button" class="btn btn-secondary font-weight-bold" onclick="addSelectedBatch()">
-                                            <i class="fa fa-plus mr-1"></i> Add
-                                        </button>
-                                    </div>
+                            <div class="input-group input-group-sm">
+                                <select id="manual_batch_select" class="form-control">
+                                    <option value="">Select batch manually…</option>
+                                    @foreach($batches as $batch)
+                                    <option value="{{ $batch->barcode }}">
+                                        {{ $batch->barcode }} — {{ $batch->accessory->name }} ({{ $batch->qty_remaining }} left){{ $batch->accessory->description ? ' — '.$batch->accessory->description : '' }}
+                                    </option>
+                                    @endforeach
+                                </select>
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-secondary btn-sm font-weight-bold" onclick="addSelectedBatch()">
+                                        <i class="fa fa-plus"></i> Add
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -185,8 +160,8 @@
 
                 </div>{{-- /left --}}
 
-                {{-- ===== RIGHT COLUMN ===== --}}
-                <div class="col-lg-5">
+                {{-- ===== RIGHT COLUMN (cart) ===== --}}
+                <div class="col-lg-8">
                     <div class="pos-sticky" style="position:sticky; top:80px;">
 
                         {{-- Cart --}}
