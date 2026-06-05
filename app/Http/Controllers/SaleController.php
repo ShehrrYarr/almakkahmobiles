@@ -1165,30 +1165,30 @@ public function processReturn(Request $request, Sale $sale)
             // 1) Always create a CREDIT entry in Accounts (reduce receivable)
             //    Accounts.Debit/Credit are integers → drop paisa to rupees safely
             \App\Models\Accounts::create([
-                ‘vendor_id’   => $sale->vendor_id,
-                ‘Debit’       => 0,
-                ‘Credit’      => (int) round($totalReturnValue), // rupees only
-                ‘description’ => "Return for Sale #{$sale->id} (SR# {$salesReturn->id})",
-                ‘created_by’  => auth()->id(),
+                'vendor_id'   => $sale->vendor_id,
+                'Debit'       => 0,
+                'Credit'      => (int) round($totalReturnValue), // rupees only
+                'description' => "Return for Sale #{$sale->id} (SR# {$salesReturn->id})",
+                'created_by'  => auth()->id(),
             ]);
 
-            // 2) Optional cash refund only up to what’s actually paid
-            //    (don’t let payments go negative)
+            // 2) Optional cash refund only up to what's actually paid
+            //    (don't let payments go negative)
             $refundToCash = min($totalReturnValue, max(0, $paidSoFar));
             if ($refundToCash > 0) {
                 \App\Models\SalePayment::create([
-                    ‘sale_id’      => $sale->id,
-                    ‘method’       => ‘counter’,
-                    ‘bank_id’      => null,
-                    ‘amount’       => -round($refundToCash, 2),
-                    ‘reference_no’ => ‘RETURN-’ . $salesReturn->id,
-                    ‘processed_by’ => auth()->id(),
-                    ‘paid_at’      => now(),
+                    'sale_id'      => $sale->id,
+                    'method'       => 'counter',
+                    'bank_id'      => null,
+                    'amount'       => -round($refundToCash, 2),
+                    'reference_no' => 'RETURN-' . $salesReturn->id,
+                    'processed_by' => auth()->id(),
+                    'paid_at'      => now(),
                 ]);
             }
 
             // Refresh paid amount from ledger sum to avoid drift
-            $sale->pay_amount = (float) $sale->payments()->sum(‘amount’);
+            $sale->pay_amount = (float) $sale->payments()->sum('amount');
             if ($sale->pay_amount < 0) $sale->pay_amount = 0;
             $sale->save();
 
@@ -1220,8 +1220,13 @@ public function processReturn(Request $request, Sale $sale)
 
     } catch (\Throwable $e) {
         \DB::rollBack();
-        \Log::error('Sales Return Error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
-        return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        \Log::error('Sales Return Error: '.$e->getMessage(), [
+            'file'  => $e->getFile(),
+            'line'  => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        $detail = basename($e->getFile()).':'.$e->getLine();
+        return response()->json(['success' => false, 'message' => $e->getMessage().' ['.$detail.']'], 422);
     }
 }
 
