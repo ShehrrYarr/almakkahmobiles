@@ -14,23 +14,23 @@
                             <div class="row">
                                 <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
                                     <div class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
-                                        <span class="card-icon success d-flex justify-content-center mr-3">
-                                            <i class="icon p-1 fa fa-money customize-icon font-large-2 p-1"></i>
+                                        <span class="card-icon danger d-flex justify-content-center mr-3">
+                                            <i class="icon p-1 fa fa-arrow-up customize-icon font-large-2 p-1"></i>
                                         </span>
                                         <div class="stats-amount mr-3">
-                                            <h3 class="heading-text text-bold-600">Rs. {{ number_format($todaysTotalPayments) }}</h3>
-                                            <p class="sub-heading">Today's Total Payments</p>
+                                            <h3 class="heading-text text-bold-600 text-danger">Rs. {{ number_format($todaysTotalDebit) }}</h3>
+                                            <p class="sub-heading">Today's Total Debit</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
                                     <div class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
-                                        <span class="card-icon primary d-flex justify-content-center mr-3">
-                                            <i class="icon p-1 fa fa-list-alt customize-icon font-large-2 p-1"></i>
+                                        <span class="card-icon success d-flex justify-content-center mr-3">
+                                            <i class="icon p-1 fa fa-arrow-down customize-icon font-large-2 p-1"></i>
                                         </span>
                                         <div class="stats-amount mr-3">
-                                            <h3 class="heading-text text-bold-600">{{ $todaysPayments->count() }}</h3>
-                                            <p class="sub-heading">Payment Entries Today</p>
+                                            <h3 class="heading-text text-bold-600 text-success">Rs. {{ number_format($todaysTotalCredit) }}</h3>
+                                            <p class="sub-heading">Today's Total Credit</p>
                                         </div>
                                     </div>
                                 </div>
@@ -62,17 +62,19 @@
                 </div>
             </div>
 
-            {{-- Today's Payment Entries table --}}
+            {{-- Today's Ledger Entries table --}}
             <div class="row mt-1">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h4 class="card-title mb-0">
-                                Today's Payment Entries
-                                <span class="badge badge-success ml-1">{{ $todaysPayments->count() }}</span>
+                                Today's Ledger Entries
+                                <span class="badge badge-secondary ml-1">{{ $todaysEntries->count() }}</span>
                             </h4>
-                            <span class="text-bold-600 text-success" style="font-size:1.1em;">
-                                Total: Rs. {{ number_format($todaysTotalPayments) }}
+                            <span style="font-size:1.0em;">
+                                <span class="text-bold-600 text-danger">DR: Rs. {{ number_format($todaysTotalDebit) }}</span>
+                                &nbsp;|&nbsp;
+                                <span class="text-bold-600 text-success">CR: Rs. {{ number_format($todaysTotalCredit) }}</span>
                             </span>
                         </div>
                         <div class="table-responsive">
@@ -80,32 +82,39 @@
                                 <thead>
                                     <tr>
                                         <th>Time</th>
-                                        <th>Vendor / Customer</th>
+                                        <th>Vendor</th>
                                         <th>Description</th>
-                                        <th>Amount (CR)</th>
+                                        <th>Debit (DR)</th>
+                                        <th>Credit (CR)</th>
                                         <th>Entered By</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($todaysPayments as $payment)
+                                    @forelse($todaysEntries as $entry)
                                     <tr>
-                                        <td>{{ $payment->created_at->format('h:i A') }}</td>
-                                        <td>{{ optional($payment->vendor)->name ?? '—' }}</td>
-                                        <td>{{ $payment->description ?? '—' }}</td>
-                                        <td class="text-success text-bold-600">Rs. {{ number_format($payment->Credit) }}</td>
-                                        <td>{{ optional($payment->creator)->name ?? '—' }}</td>
+                                        <td>{{ $entry->created_at->format('h:i A') }}</td>
+                                        <td>{{ optional($entry->vendor)->name ?? '—' }}</td>
+                                        <td>{{ $entry->description ?? '—' }}</td>
+                                        <td class="{{ $entry->Debit > 0 ? 'text-danger text-bold-600' : 'text-muted' }}">
+                                            {{ $entry->Debit > 0 ? 'Rs. '.number_format($entry->Debit) : '—' }}
+                                        </td>
+                                        <td class="{{ $entry->Credit > 0 ? 'text-success text-bold-600' : 'text-muted' }}">
+                                            {{ $entry->Credit > 0 ? 'Rs. '.number_format($entry->Credit) : '—' }}
+                                        </td>
+                                        <td>{{ optional($entry->creator)->name ?? '—' }}</td>
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted py-2">No payment entries recorded today.</td>
+                                        <td colspan="6" class="text-center text-muted py-2">No ledger entries recorded today.</td>
                                     </tr>
                                     @endforelse
                                 </tbody>
-                                @if($todaysPayments->count())
+                                @if($todaysEntries->count())
                                 <tfoot>
                                     <tr>
                                         <th colspan="3" class="text-right">Total</th>
-                                        <th class="text-success">Rs. {{ number_format($todaysTotalPayments) }}</th>
+                                        <th class="text-danger">Rs. {{ number_format($todaysTotalDebit) }}</th>
+                                        <th class="text-success">Rs. {{ number_format($todaysTotalCredit) }}</th>
                                         <th></th>
                                     </tr>
                                 </tfoot>

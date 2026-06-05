@@ -26,19 +26,22 @@ class HomeController extends Controller
             if (Auth::user()->isAdmin()) {
                 $totalUsers = User::get();
 
-                // Today's payments = Credit entries added today in the accounts ledger
-                $todaysPayments = Accounts::with('vendor', 'creator')
+                $todaysEntries = Accounts::with('vendor', 'creator')
                     ->whereDate('created_at', today())
-                    ->where('Credit', '>', 0)
+                    ->where(function ($q) {
+                        $q->where('Debit', '>', 0)->orWhere('Credit', '>', 0);
+                    })
                     ->orderByDesc('created_at')
                     ->get();
 
-                $todaysTotalPayments = $todaysPayments->sum('Credit');
+                $todaysTotalDebit  = $todaysEntries->sum('Debit');
+                $todaysTotalCredit = $todaysEntries->sum('Credit');
 
                 return view('admin_dashboard', compact(
                     'totalUsers',
-                    'todaysPayments',
-                    'todaysTotalPayments'
+                    'todaysEntries',
+                    'todaysTotalDebit',
+                    'todaysTotalCredit'
                 ));
             }
             else if (Auth::user()->isSalesman()) {
