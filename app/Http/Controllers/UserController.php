@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Accounts;
-
+use App\Models\UserPermission;
 use App\Models\TransferRecord;
 use Hash;
 use Illuminate\Http\Request;
@@ -234,12 +234,7 @@ public function index()
 
     public function showUsers()
     {
-        if (!in_array(auth()->id(), [1, 2])) {
-            return redirect()->back()->with('danger', 'You cannot view this page.');
-        }
-
-        $users = User::all();
-
+        $users = User::with('permissions')->get();
         return view('showUsers', compact('users'));
     }
 
@@ -248,55 +243,82 @@ public function index()
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
+            'role'     => 'required|in:admin,salesman',
         ]);
 
-        User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+        $user = User::create([
+            'name'          => $request->name,
+            'email'         => $request->email,
+            'password'      => Hash::make($request->password),
             'password_text' => $request->password,
+            'role'          => $request->role,
         ]);
+
+        if ($request->role === 'salesman') {
+            $this->syncPermissions($user, $request->permissions ?? []);
+        }
 
         return redirect()->back()->with('success', 'User added successfully.');
     }
 
     public function editUser($id)
     {
-        $filterId = User::find($id);
-        // dd($filterId);
-        if (!$filterId) {
+        $user = User::with('permissions')->find($id);
 
+        if (!$user) {
             return response()->json(['message' => 'Id not found'], 404);
         }
 
-        return response()->json(['result' => $filterId]);
+        $user->permission_list = $user->permissions->pluck('permission');
 
+        return response()->json(['result' => $user]);
     }
 
     public function update(Request $request)
     {
         $request->validate([
-            'id' => 'required|exists:users,id',
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $request->id,
-            'password' => 'nullable|string|min:6', // Make password optional for update
-            'is_active' => 'nullable|boolean', // Validate the active status
+            'id'        => 'required|exists:users,id',
+            'name'      => 'required|string|max:255',
+            'email'     => 'required|email|unique:users,email,' . $request->id,
+            'password'  => 'nullable|string|min:6',
+            'is_active' => 'nullable|boolean',
+            'role'      => 'required|in:admin,salesman',
         ]);
 
         $user = User::findOrFail($request->id);
 
         $user->update([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => $request->password ? Hash::make($request->password) : $user->password, // Update password only if provided
-            'password_text' => $request->password,
-            'is_active' => $request->is_active, // Update the active status
+            'name'          => $request->name,
+            'email'         => $request->email,
+            'password'      => $request->password ? Hash::make($request->password) : $user->password,
+            'password_text' => $request->password ?? $user->password_text,
+            'is_active'     => $request->is_active,
+            'role'          => $request->role,
         ]);
 
+        if ($request->role === 'salesman') {
+            $this->syncPermissions($user, $request->permissions ?? []);
+        } else {
+            // Admin has all permissions — clear any stored ones (not needed)
+            $user->permissions()->delete();
+        }
+
         return redirect()->back()->with('success', 'User updated successfully.');
+    }
+
+    private function syncPermissions(User $user, array $permissions): void
+    {
+        $allowed = ['approve_sales', 'process_returns', 'manage_inventory', 'view_vendor_accounts', 'delete_records'];
+        $toSync  = array_intersect($permissions, $allowed);
+
+        $user->permissions()->delete();
+
+        foreach ($toSync as $perm) {
+            $user->permissions()->create(['permission' => $perm]);
+        }
     }
 
 

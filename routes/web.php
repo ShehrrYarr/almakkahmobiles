@@ -62,49 +62,62 @@ Route::get('/index', [App\Http\Controllers\UserController::class, 'index'])
 
 
 
-//vendor routes
-Route::get('/showvendors', [App\Http\Controllers\VendorController::class, 'showVendors'])->name('showvendors');
-Route::post('/vendors/store', [VendorController::class, 'storeVendor'])->name('storeVendor');
-Route::get('/editvendor/{id}', [App\Http\Controllers\VendorController::class, 'editVendor'])->name('editvendor');
-Route::put('/updatevendor', [VendorController::class, 'updateVendor'])->name('updateVendor');
-Route::post('/deletevendor', [VendorController::class, 'destroyVendor'])->name('destroyVendor');
-Route::get('/showvrHistory/{id}', [VendorController::class, 'showVRHistory'])->name('showVRHistory');
-Route::get('/showvsHistory/{id}', [VendorController::class, 'showVSHistory'])->name('showVSHistory');
-Route::get('/vendor-balance/{id}', [VendorController::class, 'getBalance'])->name('vendor.balance');
-Route::get('/vendor-balance', [VendorController::class, 'getBalance'])->name('getVendorBalance');
-Route::get('/receivablevendors', [VendorController::class, 'listReceivables'])->name('receivablevendors');
+//vendor routes — require view_vendor_accounts permission
+Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts'])->group(function () {
+    Route::get('/showvendors', [App\Http\Controllers\VendorController::class, 'showVendors'])->name('showvendors');
+    Route::post('/vendors/store', [VendorController::class, 'storeVendor'])->name('storeVendor');
+    Route::get('/editvendor/{id}', [App\Http\Controllers\VendorController::class, 'editVendor'])->name('editvendor');
+    Route::put('/updatevendor', [VendorController::class, 'updateVendor'])->name('updateVendor');
+    Route::get('/showvrHistory/{id}', [VendorController::class, 'showVRHistory'])->name('showVRHistory');
+    Route::get('/showvsHistory/{id}', [VendorController::class, 'showVSHistory'])->name('showVSHistory');
+    Route::get('/vendor-balance/{id}', [VendorController::class, 'getBalance'])->name('vendor.balance');
+    Route::get('/vendor-balance', [VendorController::class, 'getBalance'])->name('getVendorBalance');
+    Route::get('/receivablevendors', [VendorController::class, 'listReceivables'])->name('receivablevendors');
+});
+Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])->group(function () {
+    Route::post('/deletevendor', [VendorController::class, 'destroyVendor'])->name('destroyVendor');
+});
 
 
 
 
 
 
-//company routes
-Route::get('/showcompanies', [App\Http\Controllers\CompanyController::class, 'showCompanies'])->name('showcompanies');
-Route::post('/company/store', [CompanyController::class, 'storeCompany'])->name('storeCompany');
-Route::get('/editcompany/{id}', [App\Http\Controllers\CompanyController::class, 'editCompany'])->name('editcompany');
-Route::put('/updatecompany', [CompanyController::class, 'updateCompany'])->name('updateCompany');
-Route::post('/deletecompany', [CompanyController::class, 'destroyCompany'])->name('destroyCompany');
+//company & group routes — require manage_inventory permission
+Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory'])->group(function () {
+    Route::get('/showcompanies', [App\Http\Controllers\CompanyController::class, 'showCompanies'])->name('showcompanies');
+    Route::post('/company/store', [CompanyController::class, 'storeCompany'])->name('storeCompany');
+    Route::get('/editcompany/{id}', [App\Http\Controllers\CompanyController::class, 'editCompany'])->name('editcompany');
+    Route::put('/updatecompany', [CompanyController::class, 'updateCompany'])->name('updateCompany');
 
-//group routes
-Route::get('/showgroups', [App\Http\Controllers\GroupController::class, 'showGroups'])->name('showgroups');
-Route::post('/group/store', [GroupController::class, 'storeGroup'])->name('storeGroup');
-Route::get('/editgroup/{id}', [App\Http\Controllers\GroupController::class, 'editGroup'])->name('editGroup');
-Route::put('/updategroup', [GroupController::class, 'updateGroup'])->name('updateGroup');
-Route::post('/deletegroup', [GroupController::class, 'destroyGroup'])->name('destroyGroup');
+    Route::get('/showgroups', [App\Http\Controllers\GroupController::class, 'showGroups'])->name('showgroups');
+    Route::post('/group/store', [GroupController::class, 'storeGroup'])->name('storeGroup');
+    Route::get('/editgroup/{id}', [App\Http\Controllers\GroupController::class, 'editGroup'])->name('editGroup');
+    Route::put('/updategroup', [GroupController::class, 'updateGroup'])->name('updateGroup');
+});
+Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])->group(function () {
+    Route::post('/deletecompany', [CompanyController::class, 'destroyCompany'])->name('destroyCompany');
+    Route::post('/deletegroup', [GroupController::class, 'destroyGroup'])->name('destroyGroup');
+});
 
-//password routes
-Route::get('/showpassword', [App\Http\Controllers\MasterPasswordController::class, 'showPassword'])->name('showpassword');
-Route::post('/password/update', [MasterPasswordController::class, 'updatePassword'])->name('updatePassword');
+//password & login restriction routes — admin only
+Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function () {
+    Route::get('/showpassword', [App\Http\Controllers\MasterPasswordController::class, 'showPassword'])->name('showpassword');
+    Route::post('/password/update', [MasterPasswordController::class, 'updatePassword'])->name('updatePassword');
+});
 
 
 
 //Accounts Routes
-Route::get('/accounts/{id}', [AccountsController::class, 'showAccounts'])->name('showAccounts');
-Route::post('/credit', [AccountsController::class, 'creditAmount'])->name('creditAmount');
-Route::post('/debit', [AccountsController::class, 'debitAmount'])->name('debitAmount');
-Route::get('/getaccount/{id}', [App\Http\Controllers\AccountsController::class, 'getaccount'])->name('getaccount');
-Route::post('/deleteaccount', [AccountsController::class, 'destroyAccount'])->name('destroyAccount');
+Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts'])->group(function () {
+    Route::get('/accounts/{id}', [AccountsController::class, 'showAccounts'])->name('showAccounts');
+    Route::post('/credit', [AccountsController::class, 'creditAmount'])->name('creditAmount');
+    Route::post('/debit', [AccountsController::class, 'debitAmount'])->name('debitAmount');
+    Route::get('/getaccount/{id}', [App\Http\Controllers\AccountsController::class, 'getaccount'])->name('getaccount');
+});
+Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])->group(function () {
+    Route::post('/deleteaccount', [AccountsController::class, 'destroyAccount'])->name('destroyAccount');
+});
 
 
 
@@ -112,40 +125,45 @@ Route::post('/deleteaccount', [AccountsController::class, 'destroyAccount'])->na
 
 
 
-//Custom Login Restriction Routes
-Route::get('/showlogin', [LoginRestrictionController::class, 'showLogin'])->name('showlogin');
+//Custom Login Restriction Routes — admin only
+Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function () {
+    Route::get('/showlogin', [LoginRestrictionController::class, 'showLogin'])->name('showlogin');
+    Route::post('/admin/login-window', [LoginRestrictionController::class, 'updateLoginWindow'])->name('admin.updateLoginWindow');
+});
 
-Route::post('/admin/login-window', [LoginRestrictionController::class, 'updateLoginWindow'])
-    ->name('admin.updateLoginWindow');
-
-//Manage user routes
-Route::get('/showusers', [UserController::class, 'showUsers'])->name('showusers');
-Route::post('/store-user', [UserController::class, 'store'])->name('storeUser');
-Route::get('/edituser/{id}', [App\Http\Controllers\UserController::class, 'editUser'])->name('editUser');
-Route::put('/update-user', [UserController::class, 'update'])->name('updateUser');
+//Manage user routes — admin only
+Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function () {
+    Route::get('/showusers', [UserController::class, 'showUsers'])->name('showusers');
+    Route::post('/store-user', [UserController::class, 'store'])->name('storeUser');
+    Route::get('/edituser/{id}', [App\Http\Controllers\UserController::class, 'editUser'])->name('editUser');
+    Route::put('/update-user', [UserController::class, 'update'])->name('updateUser');
+});
 
 
 
 
 //Accessory Routes
-Route::get('/accessories', [AccessoryController::class, 'index'])->name('accessories.index');
-Route::post('/accessories', [AccessoryController::class, 'store'])->name('accessories.store');
-Route::get('/accessoryedit/{id}', [AccessoryController::class, 'edit'])->name('accessories.edit');
-Route::put('/accessories', [AccessoryController::class, 'update'])->name('accessories.update');
-// Route::get('/filteraccessories', [App\Http\Controllers\AccessoryController::class, 'filter'])->name('filteraccessories');
-Route::get('/filteraccessory',[AccessoryController::class,'filter'])->name('filter.index');
+Route::get('/accessories', [AccessoryController::class, 'index'])->name('accessories.index')->middleware(['auth', 'login.time.restrict']);
+Route::get('/filteraccessory', [AccessoryController::class, 'filter'])->name('filter.index')->middleware(['auth', 'login.time.restrict']);
+Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory'])->group(function () {
+    Route::post('/accessories', [AccessoryController::class, 'store'])->name('accessories.store');
+    Route::get('/accessoryedit/{id}', [AccessoryController::class, 'edit'])->name('accessories.edit');
+    Route::put('/accessories', [AccessoryController::class, 'update'])->name('accessories.update');
+});
 
 //Batch Routes
-Route::get('/batches', [AccessoryBatchController::class, 'index'])->name('batches.index');
-Route::post('/batches', [AccessoryBatchController::class, 'store'])->name('batches.store');
-Route::get('/batches/{id}/barcode', [AccessoryBatchController::class, 'barcodeInfo'])->name('batches.barcode');
+Route::get('/batches', [AccessoryBatchController::class, 'index'])->name('batches.index')->middleware(['auth', 'login.time.restrict']);
+Route::get('/batches/{id}/barcode', [AccessoryBatchController::class, 'barcodeInfo'])->name('batches.barcode')->middleware(['auth', 'login.time.restrict']);
+Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory'])->group(function () {
+    Route::post('/batches', [AccessoryBatchController::class, 'store'])->name('batches.store');
+});
 
 
 //Sales Routes
 Route::get('/sales', [App\Http\Controllers\SaleController::class, 'index'])->name('sales.index');
 Route::get('/sales/create', [App\Http\Controllers\SaleController::class, 'create'])->name('sales.create');
 Route::post('/sales', [App\Http\Controllers\SaleController::class, 'store'])->name('sales.store');
-Route::post('/sales/{id}/approve', [SaleController::class, 'approve'])->name('sales.approve');
+Route::post('/sales/{id}/approve', [SaleController::class, 'approve'])->name('sales.approve')->middleware(['auth', 'login.time.restrict', 'permission:approve_sales']);
 Route::get('/sales/pending', [SaleController::class, 'pending'])->name('sales.pending');
 Route::get('/sales/approved', [SaleController::class, 'approved'])->name('sales.approved');
 Route::get('/sales/all', [\App\Http\Controllers\SaleController::class, 'allSales'])->name('sales.all');
@@ -156,8 +174,8 @@ Route::get('/sales/{sale}/items', [\App\Http\Controllers\SaleController::class, 
 Route::get('/pos', [SaleController::class, 'pos'])->name('sales.pos');
 Route::post('/pos/checkout', [SaleController::class, 'checkout'])->name('sales.checkout');
 Route::get('/pos/invoice/{sale}', [SaleController::class, 'invoice'])->name('sales.invoice');
-Route::get('/accessoryreport', [SaleController::class, 'accessoryReport'])->name('saccessoryreport');
-Route::get('/reports/sales', [\App\Http\Controllers\SaleController::class, 'salesReport']);
+Route::get('/reports/sales', [\App\Http\Controllers\SaleController::class, 'salesReport'])->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts']);
+Route::get('/accessoryreport', [SaleController::class, 'accessoryReport'])->name('saccessoryreport')->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts']);
 // routes/web.php
 Route::get('/api/vendor-balance/{id}', [VendorController::class, 'getVBalance']);
 
@@ -179,32 +197,36 @@ Route::post('/send-message-to-customers', [CustomerMessageController::class, 'se
 
 
 
-Route::get('/loginhistory', [App\Http\Controllers\LoginHistoryController::class, 'getAllLogins'])->name('loginhistory');
+Route::get('/loginhistory', [App\Http\Controllers\LoginHistoryController::class, 'getAllLogins'])->name('loginhistory')->middleware(['auth', 'login.time.restrict', 'role:admin']);
 
 // Return Routes
-Route::post('/sales/{sale}/return', [SaleController::class, 'processReturn'])->name('sales.return');
-Route::get('/sales/refunds', [SaleController::class, 'refundsPage'])->name('sales.refunds');
+Route::middleware(['auth', 'login.time.restrict', 'permission:process_returns'])->group(function () {
+    Route::post('/sales/{sale}/return', [SaleController::class, 'processReturn'])->name('sales.return');
+    Route::get('/sales/refunds', [SaleController::class, 'refundsPage'])->name('sales.refunds');
+});
 
 // Route::post('/sales/{sale}/return', [SaleController::class, 'returnItems'])->name('sales.return');
 
 //Petty Cash Routes
-Route::get('/petty-cash', [PettyCashController::class, 'index'])->name('pettycash.index');
-Route::post('/petty-cash', [PettyCashController::class, 'store'])->name('pettycash.store');
-
+Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts'])->group(function () {
+    Route::get('/petty-cash', [PettyCashController::class, 'index'])->name('pettycash.index');
+    Route::post('/petty-cash', [PettyCashController::class, 'store'])->name('pettycash.store');
+});
 
 //Bank Routes
-Route::get('/banks', [BankController::class, 'index'])->name('banks');
-Route::post('/banks', [BankController::class, 'storeBank'])->name('storeBank');
-Route::get('/getbank/{id}', [BankController::class, 'getBank'])->name('getBank');
-Route::put('/updatebank', [BankController::class, 'updateBank'])->name('updateBank');
+Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts'])->group(function () {
+    Route::get('/banks', [BankController::class, 'index'])->name('banks');
+    Route::post('/banks', [BankController::class, 'storeBank'])->name('storeBank');
+    Route::get('/getbank/{id}', [BankController::class, 'getBank'])->name('getBank');
+    Route::put('/updatebank', [BankController::class, 'updateBank'])->name('updateBank');
+});
 
 
 //Bulk Batch Store
-Route::get('/batches/bulk', [AccessoryBatchController::class, 'bulkCreate'])
-    ->name('batches.bulk');
-
-Route::post('/batches/bulk', [AccessoryBatchController::class, 'bulkStore'])
-    ->name('batches.bulk.store');
+Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory'])->group(function () {
+    Route::get('/batches/bulk', [AccessoryBatchController::class, 'bulkCreate'])->name('batches.bulk');
+    Route::post('/batches/bulk', [AccessoryBatchController::class, 'bulkStore'])->name('batches.bulk.store');
+});
 
 Route::get('/vendors/search', function (\Illuminate\Http\Request $request) {
     $q = trim($request->get('q', ''));

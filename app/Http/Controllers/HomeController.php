@@ -22,12 +22,11 @@ class HomeController extends Controller
     public function index(Request $request)
     {
         if (Auth::user() != null) {
-            if (Auth::user()->is_admin) {
-                
+            if (Auth::user()->isAdmin()) {
                 $totalUsers = User::get();
-                return view('admin_dashboard', compact('totalUsers', ));
+                return view('admin_dashboard', compact('totalUsers'));
             }
-            else if(!Auth::user()->is_admin){
+            else if (Auth::user()->isSalesman()) {
                 $agent = new Agent();
 
                 $loginHistory = LoginHistory::create([

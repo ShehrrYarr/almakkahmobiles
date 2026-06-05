@@ -13,7 +13,7 @@ class LoginTimeRestriction
     {
         $user = Auth::user();
 
-        if ($user && !in_array($user->id, [1, 2])) {
+        if ($user && !$user->isAdmin()) {
 
              if ($user->is_active == 0) {
             Auth::logout(); // Log the user out immediately if they're inactive

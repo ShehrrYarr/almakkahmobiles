@@ -22,7 +22,8 @@ class User extends Authenticatable
         'email',
         'password',
         'password_text',
-        'is_active'
+        'is_active',
+        'role',
     ];
 
     /**
@@ -43,6 +44,29 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isSalesman(): bool
+    {
+        return $this->role === 'salesman';
+    }
+
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+        return $this->permissions()->where('permission', $permission)->exists();
+    }
+
+    public function permissions()
+    {
+        return $this->hasMany(UserPermission::class);
+    }
 
     public function userThreads()
     {

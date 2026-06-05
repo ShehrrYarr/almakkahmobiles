@@ -1,225 +1,224 @@
 @extends('user_navbar')
 @section('content')
 
-    {{-- Modal --}}
-    <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
+    {{-- Add User Modal --}}
+    <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">Add User</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                    <h5 class="modal-title">Add User</h5>
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                 </div>
                 <div class="modal-body">
-                    <form class="form" id="storeMobile" action="{{ route('storeUser') }}" method="post"
-                        enctype="multipart/form-data">
+                    <form action="{{ route('storeUser') }}" method="post">
                         @csrf
-
-                        <div class="form-body">
-
-                            <div class="mb-1">
-                                <label for="name" class="form-label">Name</label>
-                                <input type="text" class="form-control" name="name" required>
-                            </div>
-                            <div class="mb-1">
-                                <label for="name" class="form-label">Email</label>
-                                <input type="text" class="form-control" name="email" required>
-                            </div>
-                            <div class="mb-1">
-                                <label for="name" class="form-label">Password</label>
-                                <input type="text" class="form-control" name="password" required>
-                            </div>
-
+                        <div class="mb-1">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" name="name" required>
                         </div>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">
-                                <i class="feather icon-x"></i> Cancel
-                            </button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fa fa-check-square-o"></i> Save
-                            </button>
+                        <div class="mb-1">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email" required>
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label">Password</label>
+                            <input type="text" class="form-control" name="password" required>
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label">Role</label>
+                            <select name="role" id="add_role" class="form-control" onchange="toggleAddPermissions(this.value)">
+                                <option value="salesman">Salesman</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+
+                        <div id="add_permissions_section" class="mt-2 p-2 border rounded">
+                            <label class="form-label font-weight-bold">Permissions</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions[]" value="approve_sales" id="add_perm_approve">
+                                <label class="form-check-label" for="add_perm_approve">Approve Sales</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions[]" value="process_returns" id="add_perm_returns">
+                                <label class="form-check-label" for="add_perm_returns">Process Returns / Refunds</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions[]" value="manage_inventory" id="add_perm_inventory">
+                                <label class="form-check-label" for="add_perm_inventory">Manage Inventory</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions[]" value="view_vendor_accounts" id="add_perm_vendor">
+                                <label class="form-check-label" for="add_perm_vendor">View Vendor Accounts &amp; Reports</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="permissions[]" value="delete_records" id="add_perm_delete">
+                                <label class="form-check-label" for="add_perm_delete">Delete Records</label>
+                            </div>
+                        </div>
+
+                        <div class="form-actions mt-2">
+                            <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
                         </div>
                     </form>
                 </div>
-
             </div>
         </div>
     </div>
-    {{-- End Modal --}}
+    {{-- End Add User Modal --}}
 
 
-    {{-- Edit Modal --}}
-
-    <div class="modal fade" id="exampleModal1" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
+    {{-- Edit User Modal --}}
+    <div class="modal fade" id="exampleModal1" tabindex="-1" role="dialog" aria-hidden="true">
         <div class="modal-dialog" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">Edit User</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
+                    <h5 class="modal-title">Edit User</h5>
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
                 </div>
                 <div class="modal-body">
-                    <form class="form" id="editmobile" action="{{ route('updateUser') }}" method="post"
-                        enctype="multipart/form-data">
+                    <form action="{{ route('updateUser') }}" method="post">
                         @csrf
                         @method('PUT')
+                        <input type="hidden" name="id" id="id">
 
-                        <div class="form-body">
-
-                            <div class="mb-1">
-                                <label for="name" class="form-label">Name</label>
-                                <input class="form-control" type="hidden" name="id" id="id" value="Update">
-                                <input type="text" class="form-control" id="vname" name="name" required>
-                            </div>
-                            <div class="mb-1">
-                                <label for="name" class="form-label">Email</label>
-                                <input type="text" class="form-control" id="vemail" name="email" required>
-                            </div>
-                            <div class="mb-1">
-                                <label for="name" class="form-label">Password</label>
-                                <input type="text" class="form-control" id="vpassword" name="password" required>
-                            </div>
-
-                            <div class="mb-1">
-                                <label for="is_active" class="form-label">Active Status</label>
-                                <select name="is_active" id="is_active" class="form-control">
-                                    <option value="1">Active</option>
-                                    <option value="0">Inactive</option>
-                                </select>
-                            </div>
-
+                        <div class="mb-1">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" id="vname" name="name" required>
                         </div>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">
-                                <i class="feather icon-x"></i> Cancel
-                            </button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fa fa-check-square-o"></i> Save
-                            </button>
+                        <div class="mb-1">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="vemail" name="email" required>
                         </div>
-                    </form>
-                </div>
+                        <div class="mb-1">
+                            <label class="form-label">Password</label>
+                            <input type="text" class="form-control" id="vpassword" name="password">
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label">Active Status</label>
+                            <select name="is_active" id="is_active" class="form-control">
+                                <option value="1">Active</option>
+                                <option value="0">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="mb-1">
+                            <label class="form-label">Role</label>
+                            <select name="role" id="edit_role" class="form-control" onchange="toggleEditPermissions(this.value)">
+                                <option value="salesman">Salesman</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
 
-            </div>
-        </div>
-    </div>
-
-    {{-- End Edit Modal --}}
-
-
-    {{-- Delete Modal --}}
-
-    <div class="modal fade" id="exampleModal2" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">Delete Company?</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form class="form" id="deleteMobile" action="{{ route('destroyGroup') }}" method="post"
-                        enctype="multipart/form-data">
-                        @csrf
-                        <div class="form-body">
-
-                            <div class="mb-1">
-                                <label for="name" class="form-label">Are you sure you want to delete this Company?</label>
-                                <input class="form-control" hidden name="id" id="did" value="Update">
-                                <input type="text" class="form-control" id="dname" name="name" readonly required>
+                        <div id="edit_permissions_section" class="mt-2 p-2 border rounded">
+                            <label class="form-label font-weight-bold">Permissions</label>
+                            <div class="form-check">
+                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="approve_sales" id="edit_perm_approve">
+                                <label class="form-check-label" for="edit_perm_approve">Approve Sales</label>
                             </div>
-
+                            <div class="form-check">
+                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="process_returns" id="edit_perm_returns">
+                                <label class="form-check-label" for="edit_perm_returns">Process Returns / Refunds</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="manage_inventory" id="edit_perm_inventory">
+                                <label class="form-check-label" for="edit_perm_inventory">Manage Inventory</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="view_vendor_accounts" id="edit_perm_vendor">
+                                <label class="form-check-label" for="edit_perm_vendor">View Vendor Accounts &amp; Reports</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="delete_records" id="edit_perm_delete">
+                                <label class="form-check-label" for="edit_perm_delete">Delete Records</label>
+                            </div>
                         </div>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">
-                                <i class="feather icon-x"></i> No
-                            </button>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fa fa-check-square-o"></i> Yes
-                            </button>
+
+                        <div class="form-actions mt-2">
+                            <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
                         </div>
                     </form>
                 </div>
-
             </div>
         </div>
     </div>
+    {{-- End Edit User Modal --}}
 
-    {{-- End Delete Modal --}}
     <style>
-        .card {
-            border-radius: 12px;
-
-        }
+        .card { border-radius: 12px; }
+        .badge-admin    { background-color: #e74c3c; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+        .badge-salesman { background-color: #3498db; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
     </style>
 
     <div class="app-content content">
         <div class="content-overlay"></div>
         <div class="content-wrapper">
-            <div class="content-header row">
-            </div>
+            <div class="content-header row"></div>
             <div class="content-body">
+
                 @if (session('success'))
-                    <div class="alert alert-success" id="successMessage">
-                        {{ session('success') }}
-                    </div>
+                    <div class="alert alert-success">{{ session('success') }}</div>
                 @endif
-
                 @if (session('danger'))
-                    <div class="alert alert-danger" id="dangerMessage" style="color: red;">
-                        {{ session('danger') }}
-                    </div>
+                    <div class="alert alert-danger">{{ session('danger') }}</div>
                 @endif
 
-                <button type="button" class="btn btn-primary ml-1" data-toggle="modal" data-target="#exampleModal">
+                <button type="button" class="btn btn-primary ml-1 mb-1" data-toggle="modal" data-target="#exampleModal">
                     <i class="bi bi-plus"></i> Add User
                 </button>
 
-                <div class="col-xxl-12 col-xl-12 col-lg-12 col-md-12 col-12 latest-update-tracking mt-1 ">
-                    <div class="card ">
-                        <div class="card-header latest-update-heading d-flex justify-content-between">
-                            <h4 class="latest-update-heading-title text-bold-500">Available Users</h4>
-
+                <div class="col-12 mt-1">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4 class="text-bold-500">Available Users</h4>
                         </div>
                         <div class="table-responsive">
-                            <table class="table table-striped table-bordered zero-configuration">
+                            <table class="table table-striped table-bordered">
                                 <thead>
                                     <tr>
                                         <th>Created At</th>
-
                                         <th>Name</th>
                                         <th>Email</th>
                                         <th>Password</th>
-                                        <th>Active Status</th>
+                                        <th>Role</th>
+                                        <th>Permissions</th>
+                                        <th>Active</th>
                                         <th>Action</th>
-                                        <!-- <th>Logout User</th> -->
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach ($users as $user)
                                         <tr>
-                                            <td>{{ $user->created_at }}</td>
+                                            <td>{{ $user->created_at->format('d M Y') }}</td>
                                             <td>{{ $user->name }}</td>
                                             <td>{{ $user->email }}</td>
                                             <td>{{ $user->password_text }}</td>
-                                            <td>{{ $user->is_active }}</td>
                                             <td>
-                                                <a href="" onclick="edit({{ $user->id }})" data-toggle="modal"
-                                                    data-target="#exampleModal1">
-                                                    <i class="feather icon-edit"></i></a>
+                                                @if ($user->role === 'admin')
+                                                    <span class="badge-admin">Admin</span>
+                                                @else
+                                                    <span class="badge-salesman">Salesman</span>
+                                                @endif
                                             </td>
-                                            <!-- <td>
-                                                <form action="{{ route('logoutUser', $user->id) }}" method="POST">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-danger btn-sm">Logout</button>
-                                                </form>
-                                            </td> -->
+                                            <td>
+                                                @if ($user->role === 'admin')
+                                                    <em class="text-muted">All</em>
+                                                @elseif ($user->permissions->isEmpty())
+                                                    <em class="text-muted">None</em>
+                                                @else
+                                                    @foreach ($user->permissions as $perm)
+                                                        <span class="badge badge-light d-inline-block mb-1">
+                                                            {{ str_replace('_', ' ', $perm->permission) }}
+                                                        </span>
+                                                    @endforeach
+                                                @endif
+                                            </td>
+                                            <td>{{ $user->is_active ? 'Active' : 'Inactive' }}</td>
+                                            <td>
+                                                <a href="#" onclick="editUser({{ $user->id }})" data-toggle="modal" data-target="#exampleModal1">
+                                                    <i class="feather icon-edit"></i>
+                                                </a>
+                                            </td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -228,60 +227,50 @@
                     </div>
                 </div>
 
-
             </div>
         </div>
     </div>
 
-
     <script>
-        //  Edit Function
-        function edit(value) {
-            console.log(value);
-            var id = value;
+        function toggleAddPermissions(role) {
+            document.getElementById('add_permissions_section').style.display = role === 'salesman' ? 'block' : 'none';
+        }
+        function toggleEditPermissions(role) {
+            document.getElementById('edit_permissions_section').style.display = role === 'salesman' ? 'block' : 'none';
+        }
+
+        function editUser(id) {
             $.ajax({
-                type: "GET",
+                type: 'GET',
                 url: '/edituser/' + id,
                 success: function (data) {
-                    $("#editmobile").trigger("reset");
+                    var u = data.result;
+                    $('#id').val(u.id);
+                    $('#vname').val(u.name);
+                    $('#vemail').val(u.email);
+                    $('#vpassword').val(u.password_text);
+                    $('#is_active').val(u.is_active == 1 ? '1' : '0');
+                    $('#edit_role').val(u.role);
+                    toggleEditPermissions(u.role);
 
-                    $('#id').val(data.result.id);
-                    $('#vname').val(data.result.name);
-                    $('#vemail').val(data.result.email);
-                    $('#vpassword').val(data.result.password_text);
-                    $('#is_active').val(data.result.is_active);
+                    // Reset all permission checkboxes
+                    $('.edit-perm').prop('checked', false);
 
-
+                    // Check the ones this user has
+                    if (u.permission_list) {
+                        $.each(u.permission_list, function (i, perm) {
+                            $('input.edit-perm[value="' + perm + '"]').prop('checked', true);
+                        });
+                    }
                 },
-                error: function (error) {
-                    console.log('Error:', error);
+                error: function (err) {
+                    console.log('Error:', err);
                 }
             });
         }
 
-        // End Edit Function
-
-        //  Delete Function
-        function remove(value) {
-            console.log(value);
-            var id = value;
-            $.ajax({
-                type: "GET",
-                url: '/editgroup/' + id,
-                success: function (data) {
-                    $("#deleteMobile").trigger("reset");
-
-                    $('#did').val(data.result.id);
-                    $('#dname').val(data.result.name);
-
-                },
-                error: function (error) {
-                    console.log('Error:', error);
-                }
-            });
-        }
-
-        // End Edit Function
+        // Init add modal — show permissions since default role is salesman
+        document.getElementById('add_permissions_section').style.display = 'block';
     </script>
 
 @endsection
