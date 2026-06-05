@@ -62,59 +62,50 @@
                 </div>
             </div>
 
-            {{-- Today's Ledger Entries table --}}
+            {{-- All Credit Entries table --}}
             <div class="row mt-1">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h4 class="card-title mb-0">
-                                Today's Ledger Entries
-                                <span class="badge badge-secondary ml-1">{{ $todaysEntries->count() }}</span>
+                                Credit Entries
+                                <span class="badge badge-success ml-1">{{ $allCreditEntries->count() }}</span>
                             </h4>
-                            <span style="font-size:1.0em;">
-                                <span class="text-bold-600 text-danger">DR: Rs. {{ number_format($todaysTotalDebit) }}</span>
-                                &nbsp;|&nbsp;
-                                <span class="text-bold-600 text-success">CR: Rs. {{ number_format($todaysTotalCredit) }}</span>
+                            <span class="text-bold-600 text-success" style="font-size:1.1em;">
+                                Total: Rs. {{ number_format($allCreditEntries->sum('Credit')) }}
                             </span>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-striped table-bordered mb-0">
                                 <thead>
                                     <tr>
-                                        <th>Time</th>
+                                        <th>Date</th>
                                         <th>Vendor</th>
                                         <th>Description</th>
-                                        <th>Debit (DR)</th>
-                                        <th>Credit (CR)</th>
-                                        <th>Entered By</th>
+                                        <th>Amount (CR)</th>
+                                        <th>Added By</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($todaysEntries as $entry)
+                                    @forelse($allCreditEntries as $entry)
                                     <tr>
-                                        <td>{{ $entry->created_at->format('h:i A') }}</td>
+                                        <td>{{ $entry->created_at->format('d M Y, h:i A') }}</td>
                                         <td>{{ optional($entry->vendor)->name ?? '—' }}</td>
                                         <td>{{ $entry->description ?? '—' }}</td>
-                                        <td class="{{ $entry->Debit > 0 ? 'text-danger text-bold-600' : 'text-muted' }}">
-                                            {{ $entry->Debit > 0 ? 'Rs. '.number_format($entry->Debit) : '—' }}
-                                        </td>
-                                        <td class="{{ $entry->Credit > 0 ? 'text-success text-bold-600' : 'text-muted' }}">
-                                            {{ $entry->Credit > 0 ? 'Rs. '.number_format($entry->Credit) : '—' }}
-                                        </td>
+                                        <td class="text-success text-bold-600">Rs. {{ number_format($entry->Credit) }}</td>
                                         <td>{{ optional($entry->creator)->name ?? '—' }}</td>
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted py-2">No ledger entries recorded today.</td>
+                                        <td colspan="5" class="text-center text-muted py-2">No credit entries found.</td>
                                     </tr>
                                     @endforelse
                                 </tbody>
-                                @if($todaysEntries->count())
+                                @if($allCreditEntries->count())
                                 <tfoot>
                                     <tr>
                                         <th colspan="3" class="text-right">Total</th>
-                                        <th class="text-danger">Rs. {{ number_format($todaysTotalDebit) }}</th>
-                                        <th class="text-success">Rs. {{ number_format($todaysTotalCredit) }}</th>
+                                        <th class="text-success">Rs. {{ number_format($allCreditEntries->sum('Credit')) }}</th>
                                         <th></th>
                                     </tr>
                                 </tfoot>

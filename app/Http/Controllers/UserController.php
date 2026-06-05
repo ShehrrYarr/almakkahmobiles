@@ -106,9 +106,16 @@ public function index()
     $totalApprovedSalesCount = \App\Models\Sale::where('status', 'approved')->count();
     $totalPendingSalesCount = \App\Models\Sale::where('status', 'pending')->count();
 
-    // ✅ Today's Debit & Credit
-    $todayTotalDebit = \App\Models\Accounts::whereDate('created_at', today())->sum('Debit');
+    // Today's Debit & Credit totals
+    $todayTotalDebit  = \App\Models\Accounts::whereDate('created_at', today())->sum('Debit');
     $todayTotalCredit = \App\Models\Accounts::whereDate('created_at', today())->sum('Credit');
+
+    // Today's credit entries for the ledger table
+    $allCreditEntries = \App\Models\Accounts::with('vendor', 'creator')
+        ->whereDate('created_at', today())
+        ->where('Credit', '>', 0)
+        ->orderByDesc('created_at')
+        ->get();
 
     return view('user_dashboard', compact(
         'totalAccessoryCount',
@@ -124,8 +131,9 @@ public function index()
         'totalPendingSalesCount',
         'lowStockCompanies',
         'lowStockGroups',
-        'todayTotalDebit',      // ✅ added
-        'todayTotalCredit'      // ✅ added
+        'todayTotalDebit',
+        'todayTotalCredit',
+        'allCreditEntries'
     ));
 }
 

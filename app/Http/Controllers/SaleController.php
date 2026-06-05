@@ -363,91 +363,67 @@ public function checkout(Request $request)
                     'created_by'  => auth()->id(),
                 ]);
 
-                $totalPaid = 0.0;
-
-                if ($hasPayments) {
-                    $soFar = 0.0;
-                    foreach ($paymentsInput as $p) {
-                        $method = $p['method'] ?? null;
-                        $amount = isset($p['amount']) ? (float)$p['amount'] : 0.0;
-                        if (!$method || $amount <= 0) continue;
-
-                        $remaining = (float)$sale->total_amount - $soFar;
-                        if ($remaining <= 0) break;
-                        $use = min($amount, $remaining);
-
-                        $bankId      = ($method === 'bank') ? ($p['bank_id'] ?? null) : null;
-                        $referenceNo = $p['reference_no'] ?? null;
-
-                        \App\Models\SalePayment::create([
-                            'sale_id'      => $sale->id,
-                            'method'       => $method,
-                            'bank_id'      => $bankId,
-                            'amount'       => $use,
-                            'reference_no' => $referenceNo,
-                            'processed_by' => auth()->id(),
-                            'paid_at'      => now(),
-                        ]);
-
-                        $desc = "Payment for Invoice #{$sale->id} via " . strtoupper($method);
-                        if ($bankId) {
-                            $bankName = optional(\App\Models\Bank::find($bankId))->name;
-                            if ($bankName) $desc .= " ({$bankName})";
-                        }
-                        if (!empty($referenceNo)) $desc .= " Ref: {$referenceNo}";
-
-                        \App\Models\Accounts::create([
-                            'vendor_id'   => $data['vendor_id'],
-                            'Debit'       => 0,
-                            'Credit'      => $use,
-                            'description' => $desc,
-                            'created_by'  => auth()->id(),
-                        ]);
-
-                        $soFar     += $use;
-                        $totalPaid += $use;
-                    }
-                } else {
-                    // Legacy single payment hint
-                    $legacyPay = max(0.0, (float) ($data['pay_amount'] ?? 0));
-                    $legacyPay = min($legacyPay, (float)$sale->total_amount);
-
+                // Normalize legacy single-payment fields into the payments array
+                if (!$hasPayments) {
+                    $legacyPay = min(max(0.0, (float)($data['pay_amount'] ?? 0)), (float)$sale->total_amount);
                     if ($legacyPay > 0) {
-                        $method = $data['payment_method'] ?? 'counter';
-                        if (!in_array($method, ['counter', 'bank'], true)) $method = 'counter';
-
-                        $bankId      = $method === 'bank' ? ($data['bank_id'] ?? null) : null;
-                        $referenceNo = $method === 'bank' ? ($data['reference_no'] ?? null) : null;
-
-                        \App\Models\SalePayment::create([
-                            'sale_id'      => $sale->id,
+                        $method = in_array($data['payment_method'] ?? '', ['counter', 'bank'], true)
+                            ? $data['payment_method'] : 'counter';
+                        $paymentsInput = [[
                             'method'       => $method,
-                            'bank_id'      => $bankId,
                             'amount'       => $legacyPay,
-                            'reference_no' => $referenceNo,
-                            'processed_by' => auth()->id(),
-                            'paid_at'      => now(),
-                        ]);
-
-                        $desc = "Payment for Invoice #{$sale->id} via " . strtoupper($method);
-                        if ($bankId) {
-                            $bankName = optional(\App\Models\Bank::find($bankId))->name;
-                            if ($bankName) $desc .= " ({$bankName})";
-                        }
-                        if (!empty($referenceNo)) $desc .= " Ref: {$referenceNo}";
-
-                        \App\Models\Accounts::create([
-                            'vendor_id'   => $data['vendor_id'],
-                            'Debit'       => 0,
-                            'Credit'      => $legacyPay,
-                            'description' => $desc,
-                            'created_by'  => auth()->id(),
-                        ]);
-
-                        $totalPaid = $legacyPay;
-                    } else {
-                        $totalPaid = 0.0;
+                            'bank_id'      => $method === 'bank' ? ($data['bank_id'] ?? null) : null,
+                            'reference_no' => $method === 'bank' ? ($data['reference_no'] ?? null) : null,
+                        ]];
+                        $hasPayments = true;
                     }
+                }
+
+                // Pre-load all bank names in one query to avoid per-payment lookups
+                $bankIds = collect($paymentsInput)->where('method', 'bank')->pluck('bank_id')->filter()->unique();
+                $banks   = $bankIds->isNotEmpty()
+                    ? \App\Models\Bank::whereIn('id', $bankIds)->pluck('name', 'id')
+                    : collect();
+
+                $totalPaid = 0.0;
+                $soFar     = 0.0;
+
+                foreach ($paymentsInput as $p) {
+                    $method = $p['method'] ?? null;
+                    $amount = isset($p['amount']) ? (float)$p['amount'] : 0.0;
+                    if (!$method || $amount <= 0) continue;
+
+                    $remaining = (float)$sale->total_amount - $soFar;
+                    if ($remaining <= 0) break;
+                    $use = min($amount, $remaining);
+
+                    $bankId      = ($method === 'bank') ? ($p['bank_id'] ?? null) : null;
+                    $referenceNo = $p['reference_no'] ?? null;
+
+                    \App\Models\SalePayment::create([
+                        'sale_id'      => $sale->id,
+                        'method'       => $method,
+                        'bank_id'      => $bankId,
+                        'amount'       => $use,
+                        'reference_no' => $referenceNo,
+                        'processed_by' => auth()->id(),
+                        'paid_at'      => now(),
+                    ]);
+
+                    $desc = "Payment for Invoice #{$sale->id} via " . strtoupper($method);
+                    if ($bankId && ($bankName = $banks->get($bankId))) $desc .= " ({$bankName})";
+                    if (!empty($referenceNo)) $desc .= " Ref: {$referenceNo}";
+
+                    \App\Models\Accounts::create([
+                        'vendor_id'   => $data['vendor_id'],
+                        'Debit'       => 0,
+                        'Credit'      => $use,
+                        'description' => $desc,
+                        'created_by'  => auth()->id(),
+                    ]);
+
+                    $soFar     += $use;
+                    $totalPaid += $use;
                 }
 
                 $sale->pay_amount = $totalPaid;
@@ -1150,23 +1126,29 @@ public function processReturn(Request $request, Sale $sale)
                 throw new \Exception('Return quantity exceeds sold quantity for: ' . ($saleItem->batch->accessory->name ?? 'Unknown item'));
             }
 
+            // Effective price per unit — accounts for any per-item discount
+            // price_per_unit stores the pre-discount price; subtotal is the actual net paid
+            $effectiveUnitPrice = ($saleItem->quantity > 0)
+                ? round($saleItem->subtotal / $saleItem->quantity, 4)
+                : (float) $saleItem->price_per_unit;
+
             // Log line
             \App\Models\SaleReturnItems::create([
                 'sale_return_id' => $salesReturn->id,
                 'sale_item_id'   => $saleItem->id,
                 'quantity'       => $qty,
-                'price_per_unit' => $saleItem->price_per_unit,
+                'price_per_unit' => $effectiveUnitPrice,
             ]);
 
             // Adjust sale item
             $saleItem->quantity -= $qty;
-            $saleItem->subtotal  = round($saleItem->quantity * (float)$saleItem->price_per_unit, 2);
+            $saleItem->subtotal  = round($saleItem->quantity * $effectiveUnitPrice, 2);
             $saleItem->save();
 
             // Return to stock
             $saleItem->batch->increment('qty_remaining', $qty);
 
-            $totalReturnValue = round($totalReturnValue + ($qty * (float)$saleItem->price_per_unit), 2);
+            $totalReturnValue = round($totalReturnValue + ($qty * $effectiveUnitPrice), 2);
         }
 
         // Recompute sale total (clamped)

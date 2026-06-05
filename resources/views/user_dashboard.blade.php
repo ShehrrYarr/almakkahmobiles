@@ -11,30 +11,6 @@
             <div class="content-header row">
             </div>
 
-            <style>
-                .low-stock-table th,
-                .low-stock-table td {
-                    text-align: center;
-                    padding: 12px 10px;
-                }
-                .low-stock-table th {
-                    background: #ffe2a7;
-                    color: #a34624;
-                    font-weight: bold;
-                    font-size: 1.07em;
-                }
-                .low-stock-table td {
-                    background: #fff7e6;
-                    color: #2d2d2d;
-                    font-size: 1.05em;
-                }
-                .low-stock-status { color: #c51111; font-weight: bold; }
-                .low-stock-count  { color: #b32d2e; font-weight: 600; }
-                #lowStockTableWrapper {
-                    overflow: hidden;
-                    transition: max-height 0.4s ease;
-                }
-            </style>
 
             {{-- Image Banner --}}
             <div class="mb-2">
@@ -122,74 +98,77 @@
 
 
             @if($lowStockAccessories->count())
-            <div id="lowStockBox"
-                style="margin: 24px 0; padding: 20px; background: #fff7e6; border: 1px solid #ffd580; border-radius: 12px; position: relative;">
-
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
-                    <h4 style="color:#b32d2e; margin-bottom:12px;">
-                        <i class="fas fa-exclamation-triangle"></i> Low Stock Reminder
-                        <small id="lowStockFilterBadge" style="margin-left:8px; color:#7a4b00;"></small>
-                    </h4>
-
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        {{-- Companies chips --}}
-                        @if(isset($lowStockCompanies) && $lowStockCompanies->count())
-                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                            <span style="font-weight:700; color:#a34624;">Companies:</span>
-                            @foreach($lowStockCompanies as $c)
-                            <button type="button" class="chip chip-company" data-type="company" data-id="{{ $c['id'] }}"
-                                style="border:none; background:#ffe28e; color:#7a4b00; padding:6px 10px; border-radius:999px; cursor:pointer;">
-                                {{ $c['name'] }} ({{ $c['count'] }})
-                            </button>
-                            @endforeach
-                        </div>
-                        @endif
-
-                        {{-- Groups chips --}}
-                        @if(isset($lowStockGroups) && $lowStockGroups->count())
-                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                            <span style="font-weight:700; color:#a34624;">Groups:</span>
-                            @foreach($lowStockGroups as $g)
-                            <button type="button" class="chip chip-group" data-type="group" data-id="{{ $g['id'] }}"
-                                style="border:none; background:#ffe28e; color:#7a4b00; padding:6px 10px; border-radius:999px; cursor:pointer;">
-                                {{ $g['name'] }} ({{ $g['count'] }})
-                            </button>
-                            @endforeach
-                        </div>
-                        @endif
-
-                        {{-- Clear filter --}}
-                        <button type="button" id="clearLowStockFilter"
-                            style="border:none; background:#ffd580; color:#7a4b00; padding:6px 10px; border-radius:999px; cursor:pointer; display:none;">
-                            Clear filter
-                        </button>
+            <div class="card border-0 shadow-sm mt-2 mb-2" id="lowStockBox">
+                <div class="card-header d-flex align-items-center justify-content-between flex-wrap" style="background:#fff3cd; border-bottom:2px solid #ffc107; gap:10px;">
+                    <div class="d-flex align-items-center flex-wrap" style="gap:10px;">
+                        <h5 class="mb-0 font-weight-bold text-dark">
+                            <i class="fas fa-exclamation-triangle text-warning mr-1"></i>
+                            Low Stock Reminder
+                            <span class="badge badge-danger ml-1">{{ $lowStockAccessories->count() }}</span>
+                        </h5>
+                        <small id="lowStockFilterBadge" class="text-muted font-italic"></small>
                     </div>
 
-                    <button id="toggleStockBtn"
-                        style="background:#ffe28e;border:none;color:#b32d2e;padding:5px 16px;border-radius:5px;font-weight:bold;cursor:pointer;">
-                        Maximize
-                    </button>
+                    <div class="d-flex align-items-center flex-wrap" style="gap:6px;">
+                        {{-- Company chips --}}
+                        @if(isset($lowStockCompanies) && $lowStockCompanies->count())
+                        <span class="text-muted small font-weight-bold">Company:</span>
+                        @foreach($lowStockCompanies as $c)
+                        <button type="button" class="btn btn-sm btn-outline-warning chip chip-company"
+                            data-type="company" data-id="{{ $c['id'] }}"
+                            style="border-radius:999px; font-size:0.78em; padding:2px 10px;">
+                            {{ $c['name'] }} <span class="badge badge-warning text-dark ml-1">{{ $c['count'] }}</span>
+                        </button>
+                        @endforeach
+                        @endif
+
+                        {{-- Group chips --}}
+                        @if(isset($lowStockGroups) && $lowStockGroups->count())
+                        <span class="text-muted small font-weight-bold ml-1">Group:</span>
+                        @foreach($lowStockGroups as $g)
+                        <button type="button" class="btn btn-sm btn-outline-secondary chip chip-group"
+                            data-type="group" data-id="{{ $g['id'] }}"
+                            style="border-radius:999px; font-size:0.78em; padding:2px 10px;">
+                            {{ $g['name'] }} <span class="badge badge-secondary ml-1">{{ $g['count'] }}</span>
+                        </button>
+                        @endforeach
+                        @endif
+
+                        <button type="button" id="clearLowStockFilter"
+                            class="btn btn-sm btn-outline-secondary"
+                            style="border-radius:999px; display:none;">
+                            <i class="fa fa-times"></i> Clear
+                        </button>
+
+                        <button id="toggleStockBtn" class="btn btn-sm btn-dark ml-1">
+                            <i class="fa fa-expand mr-1"></i> Expand
+                        </button>
+                    </div>
                 </div>
 
-                <div style="overflow:hidden;" id="lowStockTableWrapper">
-                    <table class="low-stock-table" style="width:100%; border-collapse:collapse;">
-                        <thead>
-                            <tr>
-                                <th>Accessory Name</th>
-                                <th>Company</th>
-                                <th>Group</th>
-                                <th>Minimum Qty</th>
-                                <th>Current Stock</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="low-stock-tbody"></tbody>
-                    </table>
+                <div class="card-body p-0">
+                    <div style="overflow:hidden; transition:max-height 0.4s ease;" id="lowStockTableWrapper">
+                        <table class="table table-hover table-bordered mb-0">
+                            <thead style="background:#f8f9fa;">
+                                <tr>
+                                    <th class="text-center" style="width:50px;">#</th>
+                                    <th>Accessory</th>
+                                    <th>Company</th>
+                                    <th>Group</th>
+                                    <th class="text-center">Min Qty</th>
+                                    <th class="text-center">In Stock</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="low-stock-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             @else
-            <div style="margin: 24px 0; padding: 15px; background: #eafdea; border-radius: 12px; color:#267a23;">
-                All accessories are above their minimum quantity.
+            <div class="alert alert-success d-flex align-items-center mt-2 mb-2" role="alert">
+                <i class="fa fa-check-circle mr-2" style="font-size:1.2em;"></i>
+                <span>All accessories are above their minimum quantity.</span>
             </div>
             @endif
 
@@ -332,6 +311,62 @@
 
             @endif
 
+            {{-- Credit Entries Table (admin only) --}}
+            @if(auth()->user()->isAdmin())
+            <div class="row mt-1">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h4 class="card-title mb-0">
+                                Today's Credit Entries
+                                <span class="badge badge-success ml-1">{{ $allCreditEntries->count() }}</span>
+                            </h4>
+                            <span class="text-bold-600 text-success" style="font-size:1.1em;">
+                                Total: Rs. {{ number_format($allCreditEntries->sum('Credit')) }}
+                            </span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Vendor</th>
+                                        <th>Description</th>
+                                        <th>Amount (CR)</th>
+                                        <th>Added By</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($allCreditEntries as $entry)
+                                    <tr>
+                                        <td>{{ $entry->created_at->format('d M Y, h:i A') }}</td>
+                                        <td>{{ optional($entry->vendor)->name ?? '—' }}</td>
+                                        <td>{{ $entry->description ?? '—' }}</td>
+                                        <td class="text-success text-bold-600">Rs. {{ number_format($entry->Credit) }}</td>
+                                        <td>{{ optional($entry->creator)->name ?? '—' }}</td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-2">No credit entries found.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                                @if($allCreditEntries->count())
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="3" class="text-right">Total</th>
+                                        <th class="text-success">Rs. {{ number_format($allCreditEntries->sum('Credit')) }}</th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                                @endif
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
+
 
 
 
@@ -427,15 +462,16 @@
     let data = applyFilter(LOW_STOCK);
     let dataToShow = showAll ? data : data.slice(0, 5);
 
-    dataToShow.forEach(item => {
+    dataToShow.forEach((item, index) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${item.name}</td>
+        <td class="text-center text-muted">${index + 1}</td>
+        <td><strong>${item.name}</strong></td>
         <td>${item.company || '-'}</td>
         <td>${item.group || '-'}</td>
-        <td>${item.min_qty}</td>
-        <td class="low-stock-count">${item.stock}</td>
-        <td class="low-stock-status">Restock Needed!</td>
+        <td class="text-center">${item.min_qty}</td>
+        <td class="text-center"><span class="badge badge-danger" style="font-size:0.95em;">${item.stock}</span></td>
+        <td class="text-center"><span class="badge badge-warning text-dark" style="font-size:0.85em;">Restock Needed</span></td>
       `;
       tbody.appendChild(tr);
     });
@@ -477,7 +513,7 @@
       showingAll = !showingAll;
       renderLowStockTable(showingAll);
       wrapper.style.maxHeight = (showingAll ? recomputeExpandedHeight() : collapsedHeight) + 'px';
-      toggleBtn.textContent = showingAll ? 'Minimize' : 'Maximize';
+      toggleBtn.innerHTML = showingAll ? '<i class="fa fa-compress mr-1"></i> Collapse' : '<i class="fa fa-expand mr-1"></i> Expand';
     });
 
     // Chip clicks
@@ -487,7 +523,7 @@
         showingAll = true; // auto-expand when filtering
         renderLowStockTable(true);
         wrapper.style.maxHeight = recomputeExpandedHeight() + 'px';
-        toggleBtn.textContent = 'Minimize';
+        toggleBtn.innerHTML = '<i class="fa fa-compress mr-1"></i> Collapse';
       });
     });
 
@@ -497,10 +533,10 @@
       showingAll = false;
       renderLowStockTable(false);
       wrapper.style.maxHeight = collapsedHeight + 'px';
-      toggleBtn.textContent = 'Maximize';
+      toggleBtn.innerHTML = '<i class="fa fa-expand mr-1"></i> Expand';
     });
 
-    // Hide Maximize button if <= 5 items initially
+    // Hide Expand button if <= 5 items initially
     if (LOW_STOCK.length <= 5) { toggleBtn.style.display = 'none'; }
   });
 </script>

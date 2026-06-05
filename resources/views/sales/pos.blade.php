@@ -2,126 +2,48 @@
 @section('content')
 
 <style>
-    .pos-container {
-        width: 100%;
-        max-width: none;
-        margin: 30px auto;
+    .payment-method-card {
+        border: 2px solid #dee2e6;
+        border-radius: 10px;
+        padding: 12px 18px;
+        cursor: pointer;
+        transition: all .2s;
         background: #fff;
-        border-radius: 16px;
-        box-shadow: 0 4px 18px #0002;
-        padding: 0;
-        overflow: hidden;
+        user-select: none;
     }
+    .payment-method-card:hover { border-color: #0d6efd; background: #f0f6ff; }
+    .payment-method-card.active { border-color: #0d6efd; background: #e8f0fe; }
+    .payment-method-card input[type="radio"] { display: none; }
 
-    @media (max-width: 900px) {
-        .pos-main {
-            flex-direction: column;
-        }
-
-        .pos-cart {
-            min-width: 100%;
-            border-left: none;
-            border-top: 2px solid #eee;
-        }
+    .cart-item-remove {
+        background: none;
+        border: none;
+        color: #dc3545;
+        font-size: 1.1em;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: background .15s;
     }
+    .cart-item-remove:hover { background: #fde8ea; }
 
-    .pos-main {
-        display: flex;
-        gap: 0;
-    }
-
-    .pos-form,
-    .pos-cart {
-        padding: 32px 24px;
-        min-width: 350px;
-        flex: 1;
-    }
-
-    .pos-cart {
-        border-left: 2px solid #eee;
-        background: #f7f7fb;
-    }
-
-    .input-row {
-        display: flex;
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-
-    .input-row label {
-        min-width: 150px;
-        font-weight: bold;
-        color: #333;
-    }
-
-    .input-row input,
-    .input-row select,
-    .input-row textarea {
-        flex: 1;
-        border: 1px solid #ddd;
-        border-radius: 7px;
-        padding: 8px 10px;
-        font-size: 1em;
-    }
-
-    .input-row input:focus,
-    .input-row textarea:focus,
-    .input-row select:focus {
-        border-color: #0066f7;
-        outline: none;
-    }
-
-    .scan-section {
-        margin-bottom: 24px;
-    }
-
-    .sale-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 12px;
-    }
-
-    .sale-table th,
-    .sale-table td {
-        padding: 7px 8px;
+    .cart-input {
+        width: 72px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        padding: 4px 6px;
         text-align: center;
-        border-bottom: 1px solid #eee;
+        font-size: .92em;
+    }
+    .cart-input:focus { outline: none; border-color: #0d6efd; }
+
+    #cart-badge {
+        font-size: .75em;
         vertical-align: middle;
     }
 
-    .sale-table th {
-        background: #f2f2f7;
-    }
-
-    .cart-summary {
-        font-size: 1.1em;
-        margin: 20px 0 10px 0;
-        text-align: right;
-    }
-
-    .pos-btn,
-    .btn-scan {
-        display: inline-block;
-        background: #0066f7;
-        color: #fff;
-        border: none;
-        border-radius: 6px;
-        padding: 9px 18px;
-        margin: 3px 0;
-        font-size: 1em;
-        font-weight: 600;
-        cursor: pointer;
-        transition: .2s;
-    }
-
-    .btn-scan {
-        background: #f78000;
-        margin-left: 6px;
-    }
-
-    .pos-btn:hover,
-    .btn-scan:hover {
-        filter: brightness(.95);
+    @media (max-width: 991px) {
+        .pos-sticky { position: static !important; }
     }
 </style>
 
@@ -130,718 +52,602 @@
     <div class="content-wrapper">
         <div class="content-header row"></div>
         <div class="content-body">
-            @if (session('success'))
-            <div class="alert alert-success" id="successMessage">
+
+            @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
                 {{ session('success') }}
+                <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
             </div>
             @endif
-
-            @if (session('danger'))
-            <div class="alert alert-danger" id="dangerMessage" style="color: red;">
+            @if(session('danger'))
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 {{ session('danger') }}
+                <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
             </div>
             @endif
 
-            <div class="pos-container">
-                <div style="padding:24px 32px 8px 32px; border-bottom:2px solid #f0f0f0;">
-                    <h2 style="margin:0;font-weight:700;color:#111;">Point of Sale</h2>
-                </div>
+            {{-- Page Title --}}
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h3 class="mb-0 font-weight-bold">
+                    <i class="fa fa-shopping-cart text-primary mr-2"></i> Point of Sale
+                </h3>
+            </div>
 
-                <div class="pos-main">
-                    <!-- Left: Sale & Scan Form -->
-                    <div class="pos-form">
-                        {{-- This form is only for UI grouping; checkout is via JS fetch --}}
-                        <form method="POST" action="{{ route('sales.store') }}">
-                            @csrf
-                            <div class="input-row">
-                                <label for="vendor_id">Vendor (optional):</label>
-                                <select name="vendor_id" id="vendor_id">
-                                    <option value="">Walk-in Customer</option>
-                                    @foreach($vendors as $vendor)
-                                    <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
+            <div class="row">
+                {{-- ===== LEFT COLUMN ===== --}}
+                <div class="col-lg-7">
 
-                            <div class="input-row">
-                                <label for="customer_name">Customer Name:</label>
-                                <input type="text" name="customer_name" id="customer_name"
-                                    placeholder="Walk-in (leave blank if not)">
-                            </div>
-
-                            <div class="input-row" id="customer_mobile_row" style="display: none;">
-                                <label for="customer_mobile">Customer Mobile:</label>
-                                <input type="text" name="customer_mobile" id="customer_mobile"
-                                    placeholder="Enter Mobile Number">
-                            </div>
-
-                            {{-- Comment field --}}
-                            <div class="input-row">
-                                <label for="sale_comment">Comment:</label>
-                                <textarea id="sale_comment" name="comment" rows="2"
-                                    placeholder="Optional note about this sale (e.g., special request, delivery instruction)"></textarea>
-                            </div>
-                        </form>
-
-                        <div class="scan-section">
-                            <label for="barcode_search" style="font-weight: bold;">Scan or Enter Barcode:</label>
-                            <div style="display:flex; gap:8px; margin-top:4px;">
-                                <input type="text" id="barcode_search" name="barcode_search"
-                                    placeholder="Scan or type batch barcode" autocomplete="off" style="flex:1;">
-                                <button type="button" class="btn-scan" onclick="scanBarcode()">Scan/Add</button>
-                            </div>
-
-                            <div style="margin-top:12px;">
-                                <span style="color:#888;font-size:.97em;">or select manually:</span>
-                            </div>
-
-                            <div style="margin-top:6px;">
-                                <select id="manual_batch_select"
-                                    style="width:100%; padding:6px; border-radius:6px; border:1px solid #ddd;">
-                                    <option value="">Select Accessory Batch</option>
-                                    @foreach($batches as $batch)
-                                    <option value="{{ $batch->barcode }}">
-                                        {{ $batch->barcode }} - {{ $batch->accessory->name }} (Remaining: {{
-                                        $batch->qty_remaining }}) - {{ $batch->accessory->description }}
-                                    </option>
-                                    @endforeach
-                                </select>
-                                <button type="button" class="btn-scan" onclick="addSelectedBatch()">Add</button>
-                            </div>
+                    {{-- Customer / Vendor --}}
+                    <div class="card shadow-sm mb-2">
+                        <div class="card-header py-2 bg-white border-bottom">
+                            <h6 class="mb-0 font-weight-bold"><i class="fa fa-user text-secondary mr-1"></i> Customer / Vendor</h6>
                         </div>
-
-                        {{-- Preload batches data --}}
-                        <script>
-                            window.batchData = {};
-              @foreach($batches as $batch)
-                window.batchData["{{ $batch->barcode }}"] = {
-                    id: {{ $batch->id }},
-                    barcode: "{{ $batch->barcode }}",
-                    accessory: "{{ addslashes($batch->accessory->name) }}",
-                    qty_remaining: {{ $batch->qty_remaining }},
-                    price: {{ $batch->selling_price }}
-                };
-              @endforeach
-                        </script>
+                        <div class="card-body pb-2">
+                            <form method="POST" action="{{ route('sales.store') }}" id="sale-meta-form">
+                                @csrf
+                                <div class="form-group mb-2">
+                                    <label class="small font-weight-bold text-muted mb-1">Vendor <span class="font-weight-normal">(optional)</span></label>
+                                    <select name="vendor_id" id="vendor_id" class="form-control">
+                                        <option value="">Walk-in Customer</option>
+                                        @foreach($vendors as $vendor)
+                                        <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="form-group mb-2">
+                                    <label class="small font-weight-bold text-muted mb-1">Customer Name</label>
+                                    <input type="text" name="customer_name" id="customer_name" class="form-control" placeholder="Walk-in (leave blank if not needed)">
+                                </div>
+                                <div class="form-group mb-2" id="customer_mobile_row" style="display:none;">
+                                    <label class="small font-weight-bold text-muted mb-1">Customer Mobile</label>
+                                    <input type="text" name="customer_mobile" id="customer_mobile" class="form-control" placeholder="923XXXXXXXXX">
+                                </div>
+                                <div class="form-group mb-0">
+                                    <label class="small font-weight-bold text-muted mb-1">Comment <span class="font-weight-normal">(optional)</span></label>
+                                    <textarea id="sale_comment" name="comment" rows="2" class="form-control" placeholder="Special request, delivery note…"></textarea>
+                                </div>
+                            </form>
+                        </div>
                     </div>
 
-                    <!-- Right: Cart (Sale Items) -->
-                    <div class="pos-cart">
-                        <h3 style="margin-top:0;">Sale Cart</h3>
-                        <table class="sale-table" id="sale-cart-table">
-                            <thead>
-                                <tr>
-                                    <th>Barcode</th>
-                                    <th>Accessory</th>
-                                    <th>Qty</th>
-                                    <th>Unit Price</th>
-                                    <th>Disc/Unit</th>
-                                    <th>Subtotal</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {{-- JS fills rows --}}
-                            </tbody>
-                        </table>
-
-                        <div class="cart-summary" id="cart-summary">
-                            Total: <span id="cart-total">0.00</span>
-                        </div>
-
-                        <button class="pos-btn" id="checkout-btn" onclick="checkoutSale()">Checkout & Print
-                            Invoice</button>
-                        <br>
-
-                        {{-- Vendor extra fields --}}
-                        <div id="vendor-extra-fields" style="display:none; margin-top:20px;">
-                            <div>
-                                <label for="vendor_payment">Amount Vendor Will Pay (optional):</label>
-                                <input type="number" min="0" name="pay_amount" id="pay_amount" class="form-control"
-                                    placeholder="Enter amount">
-                            </div>
-                            <div style="margin-top:10px;">
-                                <label for="vendor_balance">Vendor Balance:</label>
-                                <input type="text" id="vendor_balance" class="form-control" readonly>
-                            </div>
-                        </div>
-
-                        {{-- Payments --}}
-                        <div id="payment-section" style="margin-top:20px;">
-                            <div class="mb-2">
-                                <label class="d-block mb-1">Payment Method:</label>
-                                <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-                                    <label style="display:flex; gap:6px; align-items:center;">
-                                        <input type="radio" name="payment_method" value="counter" checked>
-                                        <span>Counter (Cash)</span>
-                                    </label>
-                                    <label style="display:flex; gap:6px; align-items:center;">
-                                        <input type="radio" name="payment_method" value="bank">
-                                        <span>Bank</span>
-                                    </label>
-
-                                    <div id="bank-select-wrap" style="display:none; min-width:260px;">
-                                        <select id="bank_id" class="form-control">
-                                            <option value="">Select Bank</option>
-                                            @foreach($banks as $bank)
-                                            <option value="{{ $bank->id }}">
-                                                {{ $bank->name }}{{ $bank->account_no ? ' — '.$bank->account_no : '' }}
-                                            </option>
-                                            @endforeach
-                                        </select>
+                    {{-- Vendor balance (admin only, shown when vendor selected) --}}
+                    <div id="vendor-extra-fields" style="display:none;">
+                        <div class="card shadow-sm mb-2 border-primary">
+                            <div class="card-body py-2">
+                                <div class="row align-items-center">
+                                    <div class="col-sm-6 mb-2 mb-sm-0">
+                                        <label class="small font-weight-bold text-muted mb-1">Amount Vendor Will Pay <span class="font-weight-normal">(optional)</span></label>
+                                        <input type="number" min="0" name="pay_amount" id="pay_amount" class="form-control" placeholder="0">
                                     </div>
-
-                                    <div id="bank-ref-wrap" style="display:none; min-width:220px;">
-                                        <input type="text" id="bank_reference" class="form-control"
-                                            placeholder="Reference / Slip # (optional)">
+                                    <div class="col-sm-6">
+                                        <label class="small font-weight-bold text-muted mb-1">Current Vendor Balance</label>
+                                        <input type="text" id="vendor_balance" class="form-control font-weight-bold text-primary" readonly>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div> {{-- /pos-cart --}}
-                </div> {{-- /pos-main --}}
-            </div> {{-- /pos-container --}}
+                    </div>
 
-            {{-- Daily Sales --}}
-            <div class="pos-container">
-                <div class="card ">
-                    <div class="card-header latest-update-heading d-flex justify-content-between">
-                        <h4 class="latest-update-heading-title text-bold-500">Daily Sales</h4>
-                        <div>
-                            <h4>Total Selling Price: Rs. {{ number_format($totalSellingPrice, 2) }}</h4>
-                            <h4>Total Paid Price: Rs. {{ number_format($totalPaidPrice, 2) }}</h4>
-
-                            <div style="margin-top:8px;">
-                                <span class="badge bg-secondary" style="font-size:0.95rem;">
-                                    Counter: Rs. {{ number_format($counterTotal, 2) }}
-                                </span>
-                                <span class="badge bg-primary" style="font-size:0.95rem; margin-left:6px;">
-                                    Bank: Rs. {{ number_format($bankTotal, 2) }}
-                                </span>
+                    {{-- Scan / Add --}}
+                    <div class="card shadow-sm mb-2">
+                        <div class="card-header py-2 bg-white border-bottom">
+                            <h6 class="mb-0 font-weight-bold"><i class="fa fa-barcode text-secondary mr-1"></i> Add Items</h6>
+                        </div>
+                        <div class="card-body pb-2">
+                            {{-- Barcode --}}
+                            <div class="form-group mb-2">
+                                <label class="small font-weight-bold text-muted mb-1">Scan Barcode</label>
+                                <div class="input-group">
+                                    <input type="text" id="barcode_search" class="form-control" placeholder="Scan or type barcode…" autocomplete="off">
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-warning font-weight-bold" onclick="scanBarcode()">
+                                            <i class="fa fa-search mr-1"></i> Scan / Add
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
-                            @if(isset($bankBreakdown) && $bankBreakdown->count())
-                            <div style="margin-top:6px; font-size:0.95rem; color:#333;">
-                                <strong>By Bank:</strong>
-                                @foreach($bankBreakdown as $bk)
-                                <span class="badge bg-light text-dark" style="margin-left:6px;">
-                                    {{ $bk['name'] }}: Rs. {{ number_format($bk['total'], 2) }}
-                                </span>
-                                @endforeach
+                            {{-- Manual select --}}
+                            <div class="form-group mb-0">
+                                <label class="small font-weight-bold text-muted mb-1">Or Select Manually</label>
+                                <div class="input-group">
+                                    <select id="manual_batch_select" class="form-control">
+                                        <option value="">Select Accessory Batch</option>
+                                        @foreach($batches as $batch)
+                                        <option value="{{ $batch->barcode }}">
+                                            {{ $batch->barcode }} — {{ $batch->accessory->name }} (Remaining: {{ $batch->qty_remaining }}){{ $batch->accessory->description ? ' — '.$batch->accessory->description : '' }}
+                                        </option>
+                                        @endforeach
+                                    </select>
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-secondary font-weight-bold" onclick="addSelectedBatch()">
+                                            <i class="fa fa-plus mr-1"></i> Add
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Preload batch data --}}
+                    <script>
+                        window.batchData = {};
+                        @foreach($batches as $batch)
+                        window.batchData["{{ $batch->barcode }}"] = {
+                            id: {{ $batch->id }},
+                            barcode: "{{ $batch->barcode }}",
+                            accessory: "{{ addslashes($batch->accessory->name) }}",
+                            qty_remaining: {{ $batch->qty_remaining }},
+                            price: {{ $batch->selling_price }}
+                        };
+                        @endforeach
+                    </script>
+
+                </div>{{-- /left --}}
+
+                {{-- ===== RIGHT COLUMN ===== --}}
+                <div class="col-lg-5">
+                    <div class="pos-sticky" style="position:sticky; top:80px;">
+
+                        {{-- Cart --}}
+                        <div class="card shadow-sm mb-2">
+                            <div class="card-header py-2 bg-white border-bottom d-flex align-items-center justify-content-between">
+                                <h6 class="mb-0 font-weight-bold">
+                                    <i class="fa fa-shopping-cart text-secondary mr-1"></i> Cart
+                                    <span id="cart-badge" class="badge badge-primary ml-1">0</span>
+                                </h6>
+                                <span class="font-weight-bold text-success">Rs. <span id="cart-total">0.00</span></span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0" id="sale-cart-table">
+                                        <thead style="background:#f8f9fa;">
+                                            <tr>
+                                                <th>Item</th>
+                                                <th class="text-center">Qty</th>
+                                                <th class="text-center">Price</th>
+                                                <th class="text-center">Disc</th>
+                                                <th class="text-center">Total</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr id="cart-empty-row">
+                                                <td colspan="6" class="text-center text-muted py-3">
+                                                    <i class="fa fa-inbox mr-1"></i> Cart is empty
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            @if(auth()->user()->isAdmin())
+                            <div class="card-footer bg-white text-right py-2">
+                                <span class="text-muted small">Grand Total</span>
+                                <span class="font-weight-bold text-success ml-2" style="font-size:1.15em;">Rs. <span id="cart-total-footer">0.00</span></span>
                             </div>
                             @endif
                         </div>
-                    </div>
 
-                    <div class="table-responsive">
-                        <table id="loginTable" class="table table-striped table-bordered zero-configuration">
-                            <thead>
-                                <tr>
-                                    <th>Sale #</th>
-                                    <th>Date</th>
-                                    <th>Customer/Vendor</th>
-                                    <th>Total</th>
-                                    <th>Payments</th>
-                                    <th>Items</th>
-                                    <th>Comment</th>
-                                    <th>Status</th>
-                                    <th>Receipt</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($sales as $sale)
-                                @php
-                                $net = (float) ($sale->total_amount ?? 0);
-                                $discount = (float) ($sale->discount_amount ?? 0);
-                                $subtotalBefore = $net + $discount;
-                                @endphp
-                                <tr>
-                                    <td>{{ $sale->id }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($sale->sale_date)->format('d M Y, H:i') }}</td>
-                                    <td>
-                                        @if($sale->vendor)
-                                        Vendor: {{ $sale->vendor->name }}
-                                        @elseif($sale->customer_name)
-                                        Customer: {{ $sale->customer_name }}
-                                        @else
-                                        Walk-in
-                                        @endif
-                                        @if(!empty($sale->comment))
-                                        <div style="font-size: 12px; color:#666; margin-top:4px;">
-                                            <strong>Note:</strong> {{ $sale->comment }}
-                                        </div>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <strong>Rs. {{ number_format($net, 2) }}</strong>
-                                        @if($discount > 0)
-                                        <div style="font-size: 12px; color: #666; margin-top: 4px; line-height: 1.2;">
-                                            <div>Subtotal (before discount): Rs. {{ number_format($subtotalBefore, 2) }}
-                                            </div>
-                                            <div>Discount: - Rs. {{ number_format($discount, 2) }}</div>
-                                        </div>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if($sale->payments->isEmpty())
-                                        <span class="badge bg-light text-dark">No Payment</span>
-                                        @else
-                                        <ul style="list-style:none; margin:0; padding:0;">
-                                            @foreach($sale->payments as $p)
-                                            <li>
-                                                @if($p->method === 'bank')
-                                                <span class="badge bg-primary">Bank</span>
-                                                <span>
-                                                    {{ $p->bank->name ?? 'Bank' }}
-                                                    — Rs. {{ number_format($p->amount, 2) }}
-                                                    @if(!empty($p->reference_no))
-                                                    (Ref: {{ $p->reference_no }})
-                                                    @endif
-                                                </span>
-                                                @else
-                                                <span class="badge bg-secondary">Counter</span>
-                                                <span>Rs. {{ number_format($p->amount, 2) }}</span>
-                                                @endif
-                                            </li>
-                                            @endforeach
-                                        </ul>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <a href="javascript:void(0)" class="sale-items-link"
-                                            data-sale="{{ $sale->id }}">
-                                            <ul style="list-style:none; margin:0; padding:0;">
-                                                @foreach($sale->items as $item)
-                                                <li>
-                                                    {{ $item->batch->accessory->name ?? '-' }} x{{ $item->quantity }}
-                                                    ({{ number_format($item->price_per_unit, 2) }} each)
-                                                </li>
-                                                @endforeach
-                                            </ul>
-                                        </a>
-                                    </td>
-                                    <td>{{ $sale->comment }}</td>
-                                    <td>
-                                        @if($sale->status == 'approved')
-                                        <span class="badge bg-success">Approved</span>
-                                        @else
-                                        <span class="badge bg-warning text-dark">Pending</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <a class="btn btn-sm btn-outline-primary" target="_blank"
-                                            href="{{ route('sales.invoice', $sale->id) }}">
-                                            Receipt
-                                        </a>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                        {{-- Payment --}}
+                        <div class="card shadow-sm mb-2">
+                            <div class="card-header py-2 bg-white border-bottom">
+                                <h6 class="mb-0 font-weight-bold"><i class="fa fa-credit-card text-secondary mr-1"></i> Payment</h6>
+                            </div>
+                            <div class="card-body" id="payment-section">
+                                <div class="d-flex gap-2 mb-3" style="gap:10px;">
+                                    <label class="payment-method-card active flex-fill text-center" id="label-counter">
+                                        <input type="radio" name="payment_method" value="counter" checked>
+                                        <div><i class="fa fa-money fa-lg text-success mb-1"></i></div>
+                                        <div class="font-weight-bold small">Counter (Cash)</div>
+                                    </label>
+                                    <label class="payment-method-card flex-fill text-center" id="label-bank">
+                                        <input type="radio" name="payment_method" value="bank">
+                                        <div><i class="fa fa-university fa-lg text-primary mb-1"></i></div>
+                                        <div class="font-weight-bold small">Bank Transfer</div>
+                                    </label>
+                                </div>
 
-                    @if(isset($todaysRefunds))
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <div class="card shadow-sm">
-                                <div class="card-body">
-                                    <h6 class="mb-1 text-muted">Today’s Refund Value (Items)</h6>
-                                    <h3 class="mb-0">Rs. {{ number_format($todaysRefunds['value_from_items'], 2) }}</h3>
-                                    <small class="text-muted">
-                                        {{ $todaysRefunds['returns'] }} return(s), {{ $todaysRefunds['lines'] }} item
-                                        line(s)
-                                    </small>
+                                <div id="bank-select-wrap" style="display:none;" class="mb-2">
+                                    <label class="small font-weight-bold text-muted mb-1">Select Bank</label>
+                                    <select id="bank_id" class="form-control">
+                                        <option value="">Select Bank</option>
+                                        @foreach($banks as $bank)
+                                        <option value="{{ $bank->id }}">{{ $bank->name }}{{ $bank->account_no ? ' — '.$bank->account_no : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div id="bank-ref-wrap" style="display:none;" class="mb-2">
+                                    <label class="small font-weight-bold text-muted mb-1">Reference / Slip #</label>
+                                    <input type="text" id="bank_reference" class="form-control" placeholder="Optional">
                                 </div>
                             </div>
                         </div>
 
-                        <div class="col-md-4">
-                            <div class="card shadow-sm">
-                                <div class="card-body">
-                                    <h6 class="mb-1 text-muted">Refunds Paid Out Today</h6>
-                                    <h3 class="mb-0">Rs. {{ number_format($todaysRefunds['paid_out_total'], 2) }}</h3>
-                                    @if(!empty($todaysRefunds['paid_by_method']) &&
-                                    count($todaysRefunds['paid_by_method']))
+                        {{-- Checkout --}}
+                        <button class="btn btn-primary btn-block font-weight-bold py-2" id="checkout-btn" onclick="checkoutSale()" style="font-size:1.05em;">
+                            <i class="fa fa-check-circle mr-1"></i> Checkout &amp; Print Invoice
+                        </button>
+
+                    </div>{{-- /sticky --}}
+                </div>{{-- /right --}}
+            </div>{{-- /row --}}
+
+            {{-- ===== Daily Sales ===== --}}
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-white d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
+                    <h5 class="mb-0 font-weight-bold"><i class="fa fa-list-alt text-secondary mr-1"></i> Daily Sales</h5>
+                    <div class="text-right">
+                        <div class="mb-1">
+                            <span class="text-muted small">Selling:</span>
+                            <strong class="ml-1">Rs. {{ number_format($totalSellingPrice, 2) }}</strong>
+                            <span class="text-muted small ml-3">Paid:</span>
+                            <strong class="ml-1">Rs. {{ number_format($totalPaidPrice, 2) }}</strong>
+                        </div>
+                        <div>
+                            <span class="badge badge-secondary" style="font-size:.85rem;">Counter: Rs. {{ number_format($counterTotal, 2) }}</span>
+                            <span class="badge badge-primary ml-1" style="font-size:.85rem;">Bank: Rs. {{ number_format($bankTotal, 2) }}</span>
+                            @if(isset($bankBreakdown) && $bankBreakdown->count())
+                            @foreach($bankBreakdown as $bk)
+                            <span class="badge badge-light text-dark ml-1" style="font-size:.82rem;">{{ $bk['name'] }}: Rs. {{ number_format($bk['total'], 2) }}</span>
+                            @endforeach
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table id="loginTable" class="table table-striped table-bordered zero-configuration mb-0">
+                        <thead>
+                            <tr>
+                                <th>Sale #</th>
+                                <th>Date</th>
+                                <th>Customer / Vendor</th>
+                                <th>Total</th>
+                                <th>Payments</th>
+                                <th>Items</th>
+                                <th>Comment</th>
+                                <th>Status</th>
+                                <th>Receipt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($sales as $sale)
+                            @php
+                                $net      = (float)($sale->total_amount ?? 0);
+                                $discount = (float)($sale->discount_amount ?? 0);
+                            @endphp
+                            <tr>
+                                <td>{{ $sale->id }}</td>
+                                <td>{{ \Carbon\Carbon::parse($sale->sale_date)->format('d M Y, H:i') }}</td>
+                                <td>
+                                    @if($sale->vendor)
+                                        <span class="badge badge-info">Vendor</span> {{ $sale->vendor->name }}
+                                    @elseif($sale->customer_name)
+                                        <span class="badge badge-secondary">Customer</span> {{ $sale->customer_name }}
+                                    @else
+                                        <span class="text-muted">Walk-in</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <strong>Rs. {{ number_format($net, 2) }}</strong>
+                                    @if($discount > 0)
+                                    <div class="text-muted" style="font-size:.8em; line-height:1.3;">
+                                        Before disc: Rs. {{ number_format($net + $discount, 2) }}<br>
+                                        Disc: −Rs. {{ number_format($discount, 2) }}
+                                    </div>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if($sale->payments->isEmpty())
+                                        <span class="badge badge-light text-dark">No Payment</span>
+                                    @else
+                                        @foreach($sale->payments as $p)
+                                        <div>
+                                            @if($p->method === 'bank')
+                                                <span class="badge badge-primary">Bank</span>
+                                                {{ $p->bank->name ?? 'Bank' }} — Rs. {{ number_format($p->amount, 2) }}
+                                                @if(!empty($p->reference_no))<br><small class="text-muted">Ref: {{ $p->reference_no }}</small>@endif
+                                            @else
+                                                <span class="badge badge-secondary">Counter</span> Rs. {{ number_format($p->amount, 2) }}
+                                            @endif
+                                        </div>
+                                        @endforeach
+                                    @endif
+                                </td>
+                                <td>
+                                    @foreach($sale->items as $item)
+                                    <div class="small">{{ $item->batch->accessory->name ?? '-' }} ×{{ $item->quantity }} <span class="text-muted">({{ number_format($item->price_per_unit, 2) }})</span></div>
+                                    @endforeach
+                                </td>
+                                <td class="small text-muted">{{ $sale->comment ?: '—' }}</td>
+                                <td>
+                                    @if($sale->status === 'approved')
+                                        <span class="badge badge-success">Approved</span>
+                                    @else
+                                        <span class="badge badge-warning text-dark">Pending</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <a class="btn btn-sm btn-outline-primary" target="_blank" href="{{ route('sales.invoice', $sale->id) }}">
+                                        <i class="fa fa-print mr-1"></i> Receipt
+                                    </a>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                @if(isset($todaysRefunds))
+                <div class="card-footer bg-white">
+                    <div class="row">
+                        <div class="col-md-4 mb-2 mb-md-0">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body py-2">
+                                    <div class="text-muted small mb-1">Today's Refund Value</div>
+                                    <h5 class="mb-0">Rs. {{ number_format($todaysRefunds['value_from_items'], 2) }}</h5>
+                                    <small class="text-muted">{{ $todaysRefunds['returns'] }} return(s), {{ $todaysRefunds['lines'] }} line(s)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2 mb-md-0">
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body py-2">
+                                    <div class="text-muted small mb-1">Refunds Paid Out</div>
+                                    <h5 class="mb-0">Rs. {{ number_format($todaysRefunds['paid_out_total'], 2) }}</h5>
+                                    @if(!empty($todaysRefunds['paid_by_method']))
                                     <small class="text-muted">
                                         @foreach($todaysRefunds['paid_by_method'] as $method => $amt)
-                                        {{ ucfirst($method) }}: Rs. {{ number_format($amt, 2) }}@if(!$loop->last),
-                                        @endif
+                                        {{ ucfirst($method) }}: Rs. {{ number_format($amt, 2) }}@if(!$loop->last), @endif
                                         @endforeach
                                     </small>
                                     @endif
                                 </div>
                             </div>
                         </div>
-
                         <div class="col-md-4">
-                            <div class="card shadow-sm">
-                                <div class="card-body">
-                                    <h6 class="mb-1 text-muted">Net Effect (Value − Paid)</h6>
-                                    <h3 class="mb-0">
-                                        Rs. {{ number_format($todaysRefunds['net_effect'], 2) }}
-                                    </h3>
-                                    <small class="text-muted">Positive = credit notes created but not yet paid
-                                        out</small>
+                            <div class="card shadow-sm h-100">
+                                <div class="card-body py-2">
+                                    <div class="text-muted small mb-1">Net Effect</div>
+                                    <h5 class="mb-0">Rs. {{ number_format($todaysRefunds['net_effect'], 2) }}</h5>
+                                    <small class="text-muted">Credit notes created but not paid out</small>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    @endif
                 </div>
+                @endif
             </div>
+
         </div>
     </div>
 </div>
 
 {{-- Processing overlay --}}
-<div id="loading-overlay" style="
-    display:none;
-    position:fixed;
-    top:0; left:0; right:0; bottom:0;
-    z-index:99999;
-    background:rgba(255,255,255,0.5);
-    backdrop-filter: blur(6px);
-    justify-content:center;
-    align-items:center;">
-    <div style="background: #fff9; padding:28px 32px; border-radius:16px; box-shadow:0 4px 24px #0003;">
-        <span style="font-size:1.4em; font-weight:600;">
-            <i class="fa fa-spinner fa-spin"></i>
-            Processing Sale, Please wait...
-        </span>
+<div id="loading-overlay" style="display:none; position:fixed; inset:0; z-index:99999; background:rgba(255,255,255,.6); backdrop-filter:blur(6px); justify-content:center; align-items:center;">
+    <div class="card shadow-lg px-5 py-4 text-center">
+        <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"></i>
+        <div class="font-weight-bold" style="font-size:1.1em;">Processing Sale…</div>
     </div>
 </div>
 
 <script>
-    // --- INIT --- //
+  // --- INIT ---
   $(document).ready(function () {
-    $('#manual_batch_select').select2({
-      placeholder: "Select a Batch",
-      allowClear: true,
-      width: '100%'
-    });
+    $('#manual_batch_select').select2({ placeholder: "Select a Batch", allowClear: true, width: '100%' });
+    $('#vendor_id').select2({ placeholder: "Select a vendor", allowClear: true, width: '100%' });
 
-    $('#vendor_id').select2({
-      placeholder: "Select a vendor",
-      allowClear: true,
-      width: '100%'
-    });
-
-    // Toggle bank fields
-    document.addEventListener('change', function(e) {
-      if (e.target && e.target.name === 'payment_method') {
-        const isBank = e.target.value === 'bank';
+    // Payment method card toggle
+    document.querySelectorAll('.payment-method-card').forEach(card => {
+      card.addEventListener('click', function () {
+        document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
+        this.classList.add('active');
+        const isBank = this.querySelector('input[type="radio"]').value === 'bank';
         document.getElementById('bank-select-wrap').style.display = isBank ? '' : 'none';
-        document.getElementById('bank-ref-wrap').style.display = isBank ? '' : 'none';
-      }
+        document.getElementById('bank-ref-wrap').style.display   = isBank ? '' : 'none';
+      });
     });
 
     // Vendor extra fields + balance fetch
     $('#vendor_id').on('change', function () {
       const vendorId = $(this).val();
-      const extraFields = document.getElementById('vendor-extra-fields');
+      const extraFields  = document.getElementById('vendor-extra-fields');
       const balanceInput = document.getElementById('vendor_balance');
+      const mobileRow    = document.getElementById('customer_mobile_row');
 
       if (vendorId) {
         extraFields.style.display = '';
-        balanceInput.value = 'Loading...';
-
+        mobileRow.style.display   = 'none';
+        document.getElementById('customer_mobile').value = '';
+        balanceInput.value = 'Loading…';
         fetch(`/api/vendor-balance/${vendorId}`)
-          .then(res => res.json())
-          .then(data => { balanceInput.value = data.balance; })
-          .catch(() => { balanceInput.value = 'Error loading balance'; });
+          .then(r => r.json())
+          .then(d => { balanceInput.value = d.balance; })
+          .catch(() => { balanceInput.value = 'Error'; });
       } else {
         extraFields.style.display = 'none';
+        mobileRow.style.display   = '';
         balanceInput.value = '';
       }
     });
+    $('#vendor_id').trigger('change');
   });
 
   // Enter triggers scan
   document.getElementById('barcode_search').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      scanBarcode();
-    }
+    if (e.key === 'Enter') { e.preventDefault(); scanBarcode(); }
   });
 
-  // Mobile input normalization
+  // Mobile normalization
   document.getElementById('customer_mobile').addEventListener('input', function () {
     this.value = this.value.replace(/\D/g, '');
-    if (!this.value.startsWith('923')) {
-      this.value = '923' + this.value.replace(/^923*/, '');
-    }
-    if (this.value.length > 12) {
-      this.value = this.value.slice(0, 12);
-    }
+    if (!this.value.startsWith('923')) this.value = '923' + this.value.replace(/^923*/, '');
+    if (this.value.length > 12) this.value = this.value.slice(0, 12);
   });
 
-  // Show/Hide mobile for walk-in
-  document.getElementById('vendor_id').addEventListener('change', function () {
-    const mobileRow = document.getElementById('customer_mobile_row');
-    if (!this.value) {
-      mobileRow.style.display = '';
-    } else {
-      mobileRow.style.display = 'none';
-      document.getElementById('customer_mobile').value = '';
-    }
-  });
-  document.getElementById('vendor_id').dispatchEvent(new Event('change'));
-
-  // --- CART LOGIC --- //
+  // --- CART ---
   let cart = [];
 
   function scanBarcode() {
     const code = document.getElementById('barcode_search').value.trim();
     if (!code) return alert('Enter or scan a barcode!');
-
     const batch = window.batchData[code];
     if (!batch) return alert('Barcode not found in available batches!');
-
     const qty = prompt('Quantity to add from batch ' + code + ' (Max: ' + batch.qty_remaining + '):', 1);
     if (!qty || isNaN(qty) || qty <= 0 || qty > batch.qty_remaining) return alert('Invalid quantity!');
-
     const existing = cart.find(i => i.barcode === batch.barcode);
-    if (existing) {
-      existing.qty = Number(existing.qty) + Number(qty);
-    } else {
-      cart.push({
-        barcode: batch.barcode,
-        accessory: batch.accessory,
-        qty: Number(qty),
-        price: Number(batch.price),
-        discount: 0
-      });
-    }
-
+    if (existing) { existing.qty = Number(existing.qty) + Number(qty); }
+    else { cart.push({ barcode: batch.barcode, accessory: batch.accessory, qty: Number(qty), price: Number(batch.price), discount: 0 }); }
     renderCart();
     document.getElementById('barcode_search').value = '';
   }
 
   function addSelectedBatch() {
-    const select = document.getElementById('manual_batch_select');
-    const code = select.value;
+    const code = document.getElementById('manual_batch_select').value;
     if (!code) return alert('Select a batch to add!');
-
     const batch = window.batchData[code];
     if (!batch) return alert('Batch not found!');
-
     const qty = prompt('Quantity to add from batch ' + code + ' (Max: ' + batch.qty_remaining + '):', 1);
     if (!qty || isNaN(qty) || qty <= 0 || qty > batch.qty_remaining) return alert('Invalid quantity!');
-
     const existing = cart.find(i => i.barcode === batch.barcode);
-    if (existing) {
-      existing.qty = Number(existing.qty) + Number(qty);
-    } else {
-      cart.push({
-        barcode: batch.barcode,
-        accessory: batch.accessory,
-        qty: Number(qty),
-        price: Number(batch.price),
-        discount: 0
-      });
-    }
-
+    if (existing) { existing.qty = Number(existing.qty) + Number(qty); }
+    else { cart.push({ barcode: batch.barcode, accessory: batch.accessory, qty: Number(qty), price: Number(batch.price), discount: 0 }); }
     renderCart();
   }
 
   function renderCart() {
     const tbody = document.querySelector('#sale-cart-table tbody');
-    tbody.innerHTML = "";
+    tbody.innerHTML = '';
+
+    if (!cart.length) {
+      tbody.innerHTML = '<tr id="cart-empty-row"><td colspan="6" class="text-center text-muted py-3"><i class="fa fa-inbox mr-1"></i> Cart is empty</td></tr>';
+      document.getElementById('cart-total').textContent = '0.00';
+      document.getElementById('cart-badge').textContent = '0';
+      const footer = document.getElementById('cart-total-footer');
+      if (footer) footer.textContent = '0.00';
+      return;
+    }
 
     cart.forEach((item, i) => {
       const unitPrice = Number(item.price) || 0;
-      const unitDisc  = Number(item.discount) || 0;
+      const unitDisc  = Math.min(Math.max(Number(item.discount) || 0, 0), unitPrice);
+      item.discount   = unitDisc;
       const qty       = Number(item.qty) || 0;
+      const lineTotal = Math.max(unitPrice - unitDisc, 0) * qty;
 
-      const safeDisc = Math.min(Math.max(unitDisc, 0), unitPrice);
-      item.discount = safeDisc;
-
-      const netUnit = Math.max(unitPrice - safeDisc, 0);
-      const lineSubtotal = netUnit * qty;
-
-      tbody.innerHTML += `<tr>
-        <td>${item.barcode}</td>
-        <td>${item.accessory}</td>
-        <td><input type="number" value="${qty}" min="1" style="width:50px;" onchange="updateQuantity(${i}, this.value)"></td>
-
-        <td><input type="number" value="${unitPrice.toFixed(2)}" min="0" step="0.01" style="width:70px;" onchange="updatePrice(${i}, this.value)"></td>
-
-        <td><input type="number" value="${safeDisc.toFixed(2)}" min="0" step="0.01" style="width:70px;" onchange="updateDiscount(${i}, this.value)"></td>
-
-        <td>${lineSubtotal.toFixed(2)}</td>
-        <td><button type="button" onclick="removeCartItem(${i})" style="background:#f33;color:#fff;padding:4px 10px;border:none;border-radius:3px;">Remove</button></td>
-      </tr>`;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="small font-weight-bold">${item.accessory}<div class="text-muted font-weight-normal" style="font-size:.8em;">${item.barcode}</div></td>
+        <td class="text-center"><input class="cart-input" type="number" value="${qty}" min="1" onchange="updateQuantity(${i}, this.value)"></td>
+        <td class="text-center"><input class="cart-input" type="number" value="${unitPrice.toFixed(2)}" min="0" step="0.01" onchange="updatePrice(${i}, this.value)"></td>
+        <td class="text-center"><input class="cart-input" type="number" value="${unitDisc.toFixed(2)}" min="0" step="0.01" onchange="updateDiscount(${i}, this.value)"></td>
+        <td class="text-center font-weight-bold small">${lineTotal.toFixed(2)}</td>
+        <td class="text-center"><button type="button" class="cart-item-remove" onclick="removeCartItem(${i})"><i class="fa fa-trash"></i></button></td>
+      `;
+      tbody.appendChild(tr);
     });
 
     const grandTotal = cart.reduce((t, it) => {
       const p = Number(it.price) || 0;
       const d = Math.min(Math.max(Number(it.discount) || 0, 0), p);
-      const q = Number(it.qty) || 0;
-      return t + (Math.max(p - d, 0) * q);
+      return t + Math.max(p - d, 0) * (Number(it.qty) || 0);
     }, 0);
 
     document.getElementById('cart-total').textContent = grandTotal.toFixed(2);
+    document.getElementById('cart-badge').textContent  = cart.length;
+    const footer = document.getElementById('cart-total-footer');
+    if (footer) footer.textContent = grandTotal.toFixed(2);
   }
 
-  function updateQuantity(i, newQty) {
-    const q = Number(newQty);
-    if (isNaN(q) || q <= 0) return;
-    cart[i].qty = q;
-    renderCart();
-  }
+  function updateQuantity(i, v) { const q = Number(v); if (!isNaN(q) && q > 0) { cart[i].qty = q; renderCart(); } }
+  function updatePrice(i, v)    { const p = Number(v); if (!isNaN(p) && p >= 0) { cart[i].price = p; if ((Number(cart[i].discount)||0) > p) cart[i].discount = p; renderCart(); } }
+  function updateDiscount(i, v) { const d = Number(v); if (!isNaN(d) && d >= 0) { cart[i].discount = d; renderCart(); } }
+  function removeCartItem(i)    { cart.splice(i, 1); renderCart(); }
 
-  function updatePrice(i, newPrice) {
-    const p = Number(newPrice);
-    if (isNaN(p) || p < 0) return;
-    cart[i].price = p;
-
-    // ensure discount doesn't exceed updated price
-    const d = Number(cart[i].discount) || 0;
-    if (d > p) cart[i].discount = p;
-
-    renderCart();
-  }
-
-  function updateDiscount(i, newDiscount) {
-    const d = Number(newDiscount);
-    if (isNaN(d) || d < 0) return;
-    cart[i].discount = d;
-    renderCart();
-  }
-
-  function removeCartItem(i) {
-    cart.splice(i, 1);
-    renderCart();
-  }
-
-  // --- CHECKOUT --- //
+  // --- CHECKOUT ---
   function checkoutSale() {
-    if (!cart.length) return alert("Cart is empty!");
+    if (!cart.length) return alert('Cart is empty!');
 
-    // Lock UI
     document.getElementById('loading-overlay').style.display = 'flex';
     const btn = document.getElementById('checkout-btn');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Processing...';
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> Processing…';
 
-    // Basics
     const vendor_id       = document.getElementById('vendor_id').value || null;
     const customer_name   = document.getElementById('customer_name').value || null;
-    const customer_mobile = document.getElementById('customer_mobile') ? document.getElementById('customer_mobile').value : '';
+    const customer_mobile = document.getElementById('customer_mobile')?.value || '';
     const comment         = (document.getElementById('sale_comment').value || '').trim() || null;
 
-    // Net total (after per-item discounts)
     const netTotal = cart.reduce((t, it) => {
       const p = Number(it.price) || 0;
       const d = Math.min(Math.max(Number(it.discount) || 0, 0), p);
-      const q = Number(it.qty) || 0;
-      return t + (Math.max(p - d, 0) * q);
+      return t + Math.max(p - d, 0) * (Number(it.qty) || 0);
     }, 0);
 
-    // Payment UI
-    const pay_amount_el   = document.getElementById('pay_amount');
-    const raw_pay_amount  = pay_amount_el ? parseFloat(pay_amount_el.value || '0') : 0;
+    const pay_amount_el  = document.getElementById('pay_amount');
+    const raw_pay_amount = pay_amount_el ? parseFloat(pay_amount_el.value || '0') : 0;
+    const methodInput    = document.querySelector('input[name="payment_method"]:checked');
+    const method         = methodInput ? methodInput.value : 'counter';
+    const bank_id        = document.getElementById('bank_id')?.value || '';
+    const reference_no   = document.getElementById('bank_reference')?.value.trim() || '';
 
-    let method = 'counter';
-    const methodInput = document.querySelector('input[name="payment_method"]:checked');
-    if (methodInput) method = methodInput.value;
-
-    const bank_id_el   = document.getElementById('bank_id');
-    const bank_ref_el  = document.getElementById('bank_reference');
-    const bank_id      = bank_id_el ? bank_id_el.value : '';
-    const reference_no = bank_ref_el ? bank_ref_el.value.trim() : '';
-
-    // Build payments[]
     const payments = [];
     if (vendor_id) {
-      // Vendor can pay partial now
       if (raw_pay_amount > 0) {
         if (method === 'bank' && !bank_id) {
           alert('Please select a bank for the bank payment.');
-          btn.disabled = false;
-          btn.innerHTML = 'Checkout & Print Invoice';
+          btn.disabled = false; btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
           document.getElementById('loading-overlay').style.display = 'none';
           return;
         }
-        payments.push({
-          method: method === 'bank' ? 'bank' : 'counter',
-          bank_id: method === 'bank' ? Number(bank_id) : null,
-          amount: Number(raw_pay_amount),
-          reference_no: method === 'bank' ? (reference_no || null) : null
-        });
+        payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(raw_pay_amount), reference_no: method === 'bank' ? (reference_no || null) : null });
       }
     } else {
-      // Walk-in: always record full payment for netTotal
       if (method === 'bank' && !bank_id) {
         alert('Please select a bank for the bank payment.');
-        btn.disabled = false;
-        btn.innerHTML = 'Checkout & Print Invoice';
+        btn.disabled = false; btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
         document.getElementById('loading-overlay').style.display = 'none';
         return;
       }
-      payments.push({
-        method: method === 'bank' ? 'bank' : 'counter',
-        bank_id: method === 'bank' ? Number(bank_id) : null,
-        amount: Number(netTotal),
-        reference_no: method === 'bank' ? (reference_no || null) : null
-      });
+      payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(netTotal), reference_no: method === 'bank' ? (reference_no || null) : null });
     }
 
-    // Payload (include legacy fields + comment)
     const payload = {
-      vendor_id,
-      customer_name,
-      customer_mobile,
-      comment,
-
-      // legacy single-payment hints (controller uses only if payments[] missing)
+      vendor_id, customer_name, customer_mobile, comment,
       pay_amount: vendor_id ? Number(raw_pay_amount) : Number(netTotal),
       payment_method: method,
       bank_id: method === 'bank' ? (bank_id ? Number(bank_id) : null) : null,
       reference_no: method === 'bank' ? (reference_no || null) : null,
-
-      // preferred multi-payment array
       payments,
-
-      items: cart.map(i => ({
-        barcode: i.barcode,
-        qty: Number(i.qty),
-        price: Number(i.price),
-        discount: Number(i.discount || 0)
-      }))
+      items: cart.map(i => ({ barcode: i.barcode, qty: Number(i.qty), price: Number(i.price), discount: Number(i.discount || 0) }))
     };
 
     fetch('/pos/checkout', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-      },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
       body: JSON.stringify(payload)
     })
     .then(async res => {
-      const contentType = res.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) return res.json();
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) return res.json();
       const text = await res.text();
-      throw new Error("Server did not return JSON. Response was: " + text.substring(0, 400));
+      throw new Error('Server did not return JSON: ' + text.substring(0, 400));
     })
     .then(data => {
       if (data.success) {
         window.open('/pos/invoice/' + data.invoice_number, '_blank');
         setTimeout(() => window.location.reload(), 700);
       } else {
-        console.error(data);
-        alert("Error: " + (data.message || 'Sale failed.'));
-        btn.disabled = false;
-        btn.innerHTML = 'Checkout & Print Invoice';
+        alert('Error: ' + (data.message || 'Sale failed.'));
+        btn.disabled = false; btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
         document.getElementById('loading-overlay').style.display = 'none';
       }
     })
-    .catch(error => {
-      console.error(error);
-      alert("Unexpected error: " + error.message);
-      btn.disabled = false;
-      btn.innerHTML = 'Checkout & Print Invoice';
+    .catch(err => {
+      alert('Unexpected error: ' + err.message);
+      btn.disabled = false; btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
       document.getElementById('loading-overlay').style.display = 'none';
     });
   }

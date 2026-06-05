@@ -167,7 +167,7 @@ Route::post('/sales/{id}/approve', [SaleController::class, 'approve'])->name('sa
 Route::get('/sales/pending', [SaleController::class, 'pending'])->name('sales.pending');
 Route::get('/sales/approved', [SaleController::class, 'approved'])->name('sales.approved');
 Route::get('/sales/all', [\App\Http\Controllers\SaleController::class, 'allSales'])->name('sales.all');
-Route::get('/sales/{sale}/items', [\App\Http\Controllers\SaleController::class, 'ajaxSaleItems']);
+Route::get('/sales/{sale}/items', [\App\Http\Controllers\SaleController::class, 'ajaxSaleItems'])->middleware(['auth', 'login.time.restrict']);
 
 
 

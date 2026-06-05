@@ -1,26 +1,73 @@
 @extends('user_navbar')
 @section('content')
 
-<!-- Modal for Sale Items and Return Form -->
-<div class="modal fade" id="saleItemsModal" tabindex="-1" aria-labelledby="saleItemsModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <form method="POST" action="" id="return-items-form">
+<!-- Custom Return Modal -->
+<style>
+    #returnOverlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(0,0,0,0.55);
+        justify-content: center;
+        align-items: center;
+    }
+    #returnOverlay.open { display: flex; }
+    #returnBox {
+        background: #fff;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 540px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+    }
+    #returnBox .r-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid #eee;
+    }
+    #returnBox .r-header h5 { margin: 0; font-weight: 700; }
+    #returnBox .r-close {
+        background: none;
+        border: none;
+        font-size: 1.4em;
+        cursor: pointer;
+        color: #666;
+        line-height: 1;
+    }
+    #returnBox .r-close:hover { color: #000; }
+    #returnBox .r-body {
+        padding: 20px;
+        overflow-y: auto;
+        flex: 1;
+    }
+    #returnBox .r-footer {
+        padding: 14px 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+</style>
+
+<div id="returnOverlay">
+    <div id="returnBox">
+        <div class="r-header">
+            <h5>Sale Items — Process Return</h5>
+            <button type="button" class="r-close" id="returnCloseBtn">&times;</button>
+        </div>
+        <form id="return-items-form" method="POST" action="">
             @csrf
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="saleItemsModalLabel">Sale Items</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="saleItemsModalBody">
-                    <!-- Sale items and return fields will be loaded here -->
-                    <div class="text-center"><i class="fa fa-spinner fa-spin"></i> Loading...</div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Submit Return</button>
-                    <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">
-                        <i class="feather icon-x"></i> Close
-                    </button>
-                </div>
+            <div class="r-body" id="returnModalBody">
+                <div class="text-center py-3"><i class="fa fa-spinner fa-spin"></i> Loading...</div>
+            </div>
+            <div class="r-footer">
+                <button type="button" class="btn btn-secondary" id="returnCancelBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="returnSubmitBtn">Submit Return</button>
             </div>
         </form>
     </div>
@@ -185,112 +232,98 @@
 </div>
 
 <script>
+    // --- Custom modal helpers ---
+    function openReturnModal()  { document.getElementById('returnOverlay').classList.add('open'); }
+    function closeReturnModal() { document.getElementById('returnOverlay').classList.remove('open'); }
 
-    
-    document.addEventListener('DOMContentLoaded', function() {
-    // Open modal and load sale items
-    document.querySelectorAll('.sale-items-link').forEach(function(link) {
-        link.addEventListener('click', function() {
-            let saleId = this.getAttribute('data-sale');
-            // Set form action dynamically
-            document.getElementById('return-items-form').action = '/sales/' + saleId + '/return';
+    // Close on overlay click, X button, Cancel button
+    document.getElementById('returnOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeReturnModal();
+    });
+    document.getElementById('returnCloseBtn').addEventListener('click', closeReturnModal);
+    document.getElementById('returnCancelBtn').addEventListener('click', closeReturnModal);
 
-            // Show modal and loading state
-            let modal = new bootstrap.Modal(document.getElementById('saleItemsModal'));
-            document.getElementById('saleItemsModalBody').innerHTML = '<div class="text-center"><i class="fa fa-spinner fa-spin"></i> Loading...</div>';
-            modal.show();
+    // Open modal on any .sale-items-link click (event delegation — survives DataTables re-render)
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('.sale-items-link');
+        if (!link) return;
 
-            // Fetch sale items via AJAX
-            fetch('/sales/' + saleId + '/items', {
-                headers: {
-                    'Accept': 'application/json'
+        const saleId = link.getAttribute('data-sale');
+        document.getElementById('return-items-form').action = '/sales/' + saleId + '/return';
+        document.getElementById('returnModalBody').innerHTML =
+            '<div class="text-center py-3"><i class="fa fa-spinner fa-spin"></i> Loading...</div>';
+        openReturnModal();
+
+        fetch('/sales/' + saleId + '/items', { headers: { 'Accept': 'application/json' } })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    let html = '<table class="table table-sm table-bordered">'
+                             + '<thead><tr><th>Item</th><th class="text-center">Qty Sold</th><th class="text-center">Return Qty</th></tr></thead><tbody>';
+                    data.items.forEach(function(item) {
+                        html += `<tr>
+                            <td>${item.accessory}</td>
+                            <td class="text-center">${item.quantity}</td>
+                            <td class="text-center">
+                                <input type="number" min="0" max="${item.quantity}" value="0"
+                                    class="form-control form-control-sm text-center"
+                                    name="return_qty[${item.id}]" style="width:80px; margin:auto;">
+                            </td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    html += `<input type="hidden" name="sale_id" value="${saleId}">`;
+                    document.getElementById('returnModalBody').innerHTML = html;
+                } else {
+                    document.getElementById('returnModalBody').innerHTML =
+                        '<div class="alert alert-danger">Could not load items.</div>';
                 }
             })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        let html = '<table class="table"><thead><tr><th>Item</th><th>Qty Sold</th><th>Return Qty</th></tr></thead><tbody>';
-                        data.items.forEach(function(item) {
-                            html += `<tr>
-                                <td>${item.accessory}</td>
-                                <td>${item.quantity}</td>
-                                <td>
-                                    <input type="number" min="0" max="${item.quantity}" class="form-control return-qty" name="return_qty[${item.id}]" value="0">
-                                </td>
-                            </tr>`;
-                        });
-                        html += '</tbody></table>';
-                        html += `<input type="hidden" name="sale_id" value="${saleId}">`;
-                        document.getElementById('saleItemsModalBody').innerHTML = html;
-                    } else {
-                        document.getElementById('saleItemsModalBody').innerHTML = '<div class="text-danger">Could not load items.</div>';
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('saleItemsModalBody').innerHTML = '<div class="text-danger">Error loading items.</div>';
-                });
-        });
+            .catch(() => {
+                document.getElementById('returnModalBody').innerHTML =
+                    '<div class="alert alert-danger">Error loading items.</div>';
+            });
     });
 
-    // Handle return form submit (AJAX)
+    // Submit return
     document.getElementById('return-items-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        let form = e.target;
-        let actionUrl = form.action;
+        const form      = e.target;
+        const submitBtn = document.getElementById('returnSubmitBtn');
+        submitBtn.disabled  = true;
+        submitBtn.innerText = 'Processing...';
 
-        // Prepare FormData (so it works with @csrf and arrays)
-        let formData = new FormData(form);
-
-        // Optionally, disable button to prevent double-submits
-        let submitBtn = form.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.innerText = "Processing...";
-
-        fetch(actionUrl, {
+        fetch(form.action, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
                 'Accept': 'application/json'
             },
-            body: formData
+            body: new FormData(form)
         })
-        .then(async res => {
-            const data = await res.json().catch(() => null);
-            submitBtn.disabled = false;
-            submitBtn.innerText = "Submit Return";
-
-            if (!data) {
-                alert("Unexpected server response.");
-                return;
-            }
-
+        .then(res => res.json())
+        .then(data => {
+            submitBtn.disabled  = false;
+            submitBtn.innerText = 'Submit Return';
             if (data.success) {
-                alert(data.message || "Return processed successfully!");
-                // Close modal
-                let modalEl = document.getElementById('saleItemsModal');
-                let modal = bootstrap.Modal.getInstance(modalEl);
-                modal.hide();
-                // Reload sales list
+                alert(data.message || 'Return processed successfully!');
+                closeReturnModal();
                 location.reload();
             } else {
-                alert(data.message || "Could not process return.");
+                alert(data.message || 'Could not process return.');
             }
         })
-        .catch(err => {
-            submitBtn.disabled = false;
-            submitBtn.innerText = "Submit Return";
-            alert("Server error. Try again.");
+        .catch(() => {
+            submitBtn.disabled  = false;
+            submitBtn.innerText = 'Submit Return';
+            alert('Network error. Please try again.');
         });
     });
-});
 
-$(document).ready(function () {
-$('#loginTable').DataTable({
-order: [
-[0, 'desc']
-]
-});
-});
+    // DataTables init
+    $(document).ready(function () {
+        $('#loginTable').DataTable({ order: [[0, 'desc']] });
+    });
 </script>
 
 @endsection
