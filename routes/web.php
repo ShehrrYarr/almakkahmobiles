@@ -250,8 +250,10 @@ Route::get('/vendors/search', function (\Illuminate\Http\Request $request) {
 //Printer setting ------> Done
 //Comments in sales ------> Done
 
-Route::get('/sales/live', [SalesLiveController::class, 'index'])->name('sales.live.index');
-Route::get('/sales/live/feed', [SalesLiveController::class, 'feed'])->name('sales.live.feed');
+Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function () {
+    Route::get('/sales/live', [SalesLiveController::class, 'index'])->name('sales.live.index');
+    Route::get('/sales/live/feed', [SalesLiveController::class, 'feed'])->name('sales.live.feed');
+});
 
 //error fix
 

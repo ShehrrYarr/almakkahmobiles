@@ -354,10 +354,11 @@ public function checkout(Request $request)
             $hasPayments   = is_array($paymentsInput) && count($paymentsInput) > 0;
 
             if (!empty($data['vendor_id'])) {
-                // Vendor ledger: debit full net
+                // Vendor ledger: debit full net — store sale_id so returns can find this row
                 \App\Models\Accounts::create([
                     'vendor_id'   => $data['vendor_id'],
-                    'Debit'       => $sale->total_amount,
+                    'sale_id'     => $sale->id,
+                    'Debit'       => (int) round($sale->total_amount),
                     'Credit'      => 0,
                     'description' => "Sale Invoice #{$sale->id}",
                     'created_by'  => auth()->id(),
@@ -794,9 +795,8 @@ public function invoice($id)
 
 public function approve($id)
 {
-    // Only user with ID 1 can approve
-    if (auth()->id() != 1) {
-        return redirect()->back()->with('danger', 'You can not approve this sale');
+    if (!auth()->user()->hasPermission('approve_sales')) {
+        return redirect()->back()->with('danger', 'You do not have permission to approve sales.');
     }
 
     $sale = Sale::findOrFail($id);
@@ -1181,34 +1181,46 @@ public function processReturn(Request $request, Sale $sale)
 
         if ($sale->vendor_id) {
             // VENDOR FLOW:
-            // 1) Always create a CREDIT entry in Accounts (reduce receivable)
-            //    Accounts.Debit/Credit are integers → drop paisa to rupees safely
-            \App\Models\Accounts::create([
-                'vendor_id'   => $sale->vendor_id,
-                'Debit'       => 0,
-                'Credit'      => (int) round($totalReturnValue), // rupees only
-                'description' => "Return for Sale #{$sale->id} (SR# {$salesReturn->id})",
-                'created_by'  => auth()->id(),
-            ]);
+            // Reverse the original Debit proportionally — find the account entry for this sale
+            // and reduce its Debit by the returned value instead of creating a new Credit row.
+            $accountEntry = \App\Models\Accounts::where(‘vendor_id’, $sale->vendor_id)
+                ->where(‘sale_id’, $sale->id)
+                ->where(‘Debit’, ‘>’, 0)
+                ->first();
 
-            // 2) Optional cash refund only up to what’s actually paid
-            //    (don’t let payments go negative)
-            $refundToCash = min($totalReturnValue, max(0, $paidSoFar));
-            if ($refundToCash > 0) {
-                \App\Models\SalePayment::create([
-                    'sale_id'      => $sale->id,
-                    'method'       => 'counter',     // or mirror last payment method if you prefer
-                    'bank_id'      => null,
-                    'amount'       => -round($refundToCash, 2),  // negative = refund
-                    'reference_no' => 'RETURN-' . $salesReturn->id,
-                    'processed_by' => auth()->id(),
-                    'paid_at'      => now(),
+            if ($accountEntry) {
+                // New sales: reduce the original Debit in place
+                $reduction = (int) round($totalReturnValue);
+                $accountEntry->Debit = max(0, $accountEntry->Debit - $reduction);
+                $accountEntry->description = $accountEntry->description
+                    . " | Return SR#{$salesReturn->id}: -" . number_format($reduction);
+                $accountEntry->save();
+            } else {
+                // Old sales (no sale_id link): create a Credit entry to reduce the receivable
+                \App\Models\Accounts::create([
+                    ‘vendor_id’   => $sale->vendor_id,
+                    ‘Debit’       => 0,
+                    ‘Credit’      => (int) round($totalReturnValue),
+                    ‘description’ => "Return for Sale #{$sale->id} (SR#{$salesReturn->id})",
+                    ‘created_by’  => auth()->id(),
                 ]);
             }
 
-            // Refresh paid amount from ledger sum to avoid drift
-            $sale->pay_amount = (float) $sale->payments()->sum('amount');
-            if ($sale->pay_amount < 0) $sale->pay_amount = 0; // safety clamp
+            // Record cash refund only up to what’s actually been paid (prevents negative pay_amount)
+            $refundToCash = min($totalReturnValue, max(0, $paidSoFar));
+            if ($refundToCash > 0) {
+                \App\Models\SalePayment::create([
+                    ‘sale_id’      => $sale->id,
+                    ‘method’       => ‘counter’,
+                    ‘bank_id’      => null,
+                    ‘amount’       => -round($refundToCash, 2),
+                    ‘reference_no’ => ‘RETURN-’ . $salesReturn->id,
+                    ‘processed_by’ => auth()->id(),
+                    ‘paid_at’      => now(),
+                ]);
+            }
+
+            $sale->pay_amount = max(0, (float) $sale->payments()->sum(‘amount’));
             $sale->save();
 
         } else {

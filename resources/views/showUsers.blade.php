@@ -70,7 +70,7 @@
 
     {{-- Edit User Modal --}}
     <div class="modal fade" id="exampleModal1" tabindex="-1" role="dialog" aria-hidden="true">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog modal-dialog-scrollable" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Edit User</h5>
@@ -103,33 +103,43 @@
                         </div>
                         <div class="mb-1">
                             <label class="form-label">Role</label>
-                            <select name="role" id="edit_role" class="form-control" onchange="toggleEditPermissions(this.value)">
+                            <select name="role" id="edit_role" class="form-control" onchange="onEditRoleChange(this.value)">
                                 <option value="salesman">Salesman</option>
                                 <option value="admin">Admin</option>
                             </select>
                         </div>
 
-                        <div id="edit_permissions_section" class="mt-2 p-2 border rounded">
-                            <label class="form-label font-weight-bold">Permissions</label>
-                            <div class="form-check">
-                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="approve_sales" id="edit_perm_approve">
-                                <label class="form-check-label" for="edit_perm_approve">Approve Sales</label>
+                        {{-- Permissions panel — always visible --}}
+                        <div class="mt-2 p-2 border rounded">
+                            <p class="font-weight-bold mb-1" style="font-size:13px;">Permissions</p>
+
+                            {{-- Shown for admin role --}}
+                            <div id="edit_admin_notice" style="display:none;">
+                                <small class="text-muted">Admin has full access to all features — no restrictions apply.</small>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="process_returns" id="edit_perm_returns">
-                                <label class="form-check-label" for="edit_perm_returns">Process Returns / Refunds</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="manage_inventory" id="edit_perm_inventory">
-                                <label class="form-check-label" for="edit_perm_inventory">Manage Inventory</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="view_vendor_accounts" id="edit_perm_vendor">
-                                <label class="form-check-label" for="edit_perm_vendor">View Vendor Accounts &amp; Reports</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="delete_records" id="edit_perm_delete">
-                                <label class="form-check-label" for="edit_perm_delete">Delete Records</label>
+
+                            {{-- Shown for salesman role --}}
+                            <div id="edit_permissions_section">
+                                <div class="form-check">
+                                    <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="approve_sales" id="edit_perm_approve">
+                                    <label class="form-check-label" for="edit_perm_approve">Approve Sales</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="process_returns" id="edit_perm_returns">
+                                    <label class="form-check-label" for="edit_perm_returns">Process Returns / Refunds</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="manage_inventory" id="edit_perm_inventory">
+                                    <label class="form-check-label" for="edit_perm_inventory">Manage Inventory</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="view_vendor_accounts" id="edit_perm_vendor">
+                                    <label class="form-check-label" for="edit_perm_vendor">View Vendor Accounts &amp; Reports</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="delete_records" id="edit_perm_delete">
+                                    <label class="form-check-label" for="edit_perm_delete">Delete Records</label>
+                                </div>
                             </div>
                         </div>
 
@@ -235,8 +245,15 @@
         function toggleAddPermissions(role) {
             document.getElementById('add_permissions_section').style.display = role === 'salesman' ? 'block' : 'none';
         }
-        function toggleEditPermissions(role) {
-            document.getElementById('edit_permissions_section').style.display = role === 'salesman' ? 'block' : 'none';
+
+        function onEditRoleChange(role) {
+            if (role === 'admin') {
+                document.getElementById('edit_admin_notice').style.display    = 'block';
+                document.getElementById('edit_permissions_section').style.display = 'none';
+            } else {
+                document.getElementById('edit_admin_notice').style.display    = 'none';
+                document.getElementById('edit_permissions_section').style.display = 'block';
+            }
         }
 
         function editUser(id) {
@@ -251,25 +268,25 @@
                     $('#vpassword').val(u.password_text);
                     $('#is_active').val(u.is_active == 1 ? '1' : '0');
                     $('#edit_role').val(u.role);
-                    toggleEditPermissions(u.role);
 
-                    // Reset all permission checkboxes
+                    // Show the correct permissions panel based on role
+                    onEditRoleChange(u.role);
+
+                    // Reset checkboxes then tick the ones this user has
                     $('.edit-perm').prop('checked', false);
-
-                    // Check the ones this user has
-                    if (u.permission_list) {
+                    if (u.permission_list && u.permission_list.length) {
                         $.each(u.permission_list, function (i, perm) {
-                            $('input.edit-perm[value="' + perm + '"]').prop('checked', true);
+                            $('#edit_permissions_section input[value="' + perm + '"]').prop('checked', true);
                         });
                     }
                 },
                 error: function (err) {
-                    console.log('Error:', err);
+                    console.log('Error loading user:', err);
                 }
             });
         }
 
-        // Init add modal — show permissions since default role is salesman
+        // Init: add modal defaults to salesman — show permissions
         document.getElementById('add_permissions_section').style.display = 'block';
     </script>
 

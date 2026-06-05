@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Accounts extends Model
 {
     use HasFactory;
-    protected $fillable = ['vendor_id','description','created_by','Debit','Credit','batch_id', ];
+    protected $fillable = ['vendor_id', 'description', 'created_by', 'Debit', 'Credit', 'batch_id', 'sale_id'];
 
     public function vendor()
     {
@@ -19,8 +19,13 @@ class Accounts extends Model
     return $this->belongsTo(User::class, 'created_by');
 
     }
-     public function batch()
+    public function batch()
     {
         return $this->belongsTo(AccessoryBatch::class, 'batch_id');
+    }
+
+    public function sale()
+    {
+        return $this->belongsTo(\App\Models\Sale::class, 'sale_id');
     }
 }

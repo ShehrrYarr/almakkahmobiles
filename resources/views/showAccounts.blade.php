@@ -273,21 +273,22 @@
         });
         
         function recalcBalance() {
-        let runningBalance = 0;
-        // Loop through the rows in the **current displayed order**
-        table.rows({order:'applied', search:'applied'}).every(function(rowIdx, tableLoop, rowLoop){
-        let node = this.node();
-        let $cell = $(node).find('.balance-cell');
-        let credit = parseFloat($cell.data('credit')) || 0;
-        let debit = parseFloat($cell.data('debit')) || 0;
-        runningBalance += (credit - debit);
-        // Format as integer with commas, you can adjust as needed
-        $cell.text(runningBalance.toLocaleString());
-        // Optional: style for positive/negative
-        $cell.removeClass('text-danger text-primary');
-        if (runningBalance < 0) $cell.addClass('text-danger'); else if (runningBalance> 0) $cell.addClass('text-primary');
+            let runningBalance = 0;
+            table.rows({order:'applied', search:'applied'}).every(function(){
+                let node = this.node();
+                let $cell = $(node).find('.balance-cell');
+                let debit  = parseFloat($cell.data('debit'))  || 0;
+                let credit = parseFloat($cell.data('credit')) || 0;
+                // Debit = vendor owes us | Credit = vendor paid / we reduced obligation
+                // Positive balance = vendor still owes us money
+                runningBalance += (debit - credit);
+                $cell.text(runningBalance.toLocaleString());
+                $cell.removeClass('text-danger text-success text-muted');
+                if (runningBalance > 0)      $cell.addClass('text-danger');   // vendor owes us
+                else if (runningBalance < 0) $cell.addClass('text-success');  // over-paid (rare)
+                else                         $cell.addClass('text-muted');    // settled
             });
-            }
+        }
         
             // Calculate on page load and on every redraw
             table.on('draw', function(){

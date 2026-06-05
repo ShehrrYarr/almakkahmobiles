@@ -11,6 +11,31 @@
             <div class="content-header row">
             </div>
 
+            <style>
+                .low-stock-table th,
+                .low-stock-table td {
+                    text-align: center;
+                    padding: 12px 10px;
+                }
+                .low-stock-table th {
+                    background: #ffe2a7;
+                    color: #a34624;
+                    font-weight: bold;
+                    font-size: 1.07em;
+                }
+                .low-stock-table td {
+                    background: #fff7e6;
+                    color: #2d2d2d;
+                    font-size: 1.05em;
+                }
+                .low-stock-status { color: #c51111; font-weight: bold; }
+                .low-stock-count  { color: #b32d2e; font-weight: 600; }
+                #lowStockTableWrapper {
+                    overflow: hidden;
+                    transition: max-height 0.4s ease;
+                }
+            </style>
+
             {{-- Image Banner --}}
             <div class="mb-2">
                 <img src="{{ asset('images/banner.jpg') }}" alt=" Banner" class="img-fluid shadow rounded"
@@ -168,10 +193,7 @@
             </div>
             @endif
 
-            @php
-            $userId = auth()->id();
-            @endphp
-            @if (in_array($userId, [1, 2]))
+            @if(auth()->user()->isAdmin())
             <div class="row grouped-multiple-statistics-card">
                 <div class="col-12">
                     <div class="card">
@@ -301,41 +323,6 @@
                 </div>
             </div>
 
-            <style>
-                .low-stock-table th,
-                .low-stock-table td {
-                    text-align: center;
-                    padding: 12px 10px;
-                }
-
-                .low-stock-table th {
-                    background: #ffe2a7;
-                    color: #a34624;
-                    font-weight: bold;
-                    font-size: 1.07em;
-                }
-
-                .low-stock-table td {
-                    background: #fff7e6;
-                    color: #2d2d2d;
-                    font-size: 1.05em;
-                }
-
-                .low-stock-status {
-                    color: #c51111;
-                    font-weight: bold;
-                }
-
-                .low-stock-count {
-                    color: #b32d2e;
-                    font-weight: 600;
-                }
-
-                #lowStockTableWrapper {
-                    overflow: hidden;
-                    transition: max-height 0.5s cubic-bezier(.68, -0.55, .27, 1.55);
-                }
-            </style>
 
 
 

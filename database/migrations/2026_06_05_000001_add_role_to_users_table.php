@@ -13,11 +13,8 @@ class AddRoleToUsersTable extends Migration
             $table->enum('role', ['admin', 'salesman'])->default('salesman')->after('is_active');
         });
 
-        // Populate role from existing is_admin column
-        DB::table('users')->where('is_admin', 1)->update(['role' => 'admin']);
-        DB::table('users')->where(function ($q) {
-            $q->where('is_admin', 0)->orWhereNull('is_admin');
-        })->update(['role' => 'salesman']);
+        // is_admin was never populated in DB; original admins were IDs 1 & 2 (hardcoded in middleware)
+        DB::table('users')->whereIn('id', [1, 2])->update(['role' => 'admin']);
     }
 
     public function down()

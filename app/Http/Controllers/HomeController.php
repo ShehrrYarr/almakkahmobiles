@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\UserController;
 use App\Models\User;
 use App\Models\LoginHistory;
+use App\Models\Accounts;
 use Jenssegers\Agent\Agent;
 
 
@@ -24,7 +25,21 @@ class HomeController extends Controller
         if (Auth::user() != null) {
             if (Auth::user()->isAdmin()) {
                 $totalUsers = User::get();
-                return view('admin_dashboard', compact('totalUsers'));
+
+                // Today's payments = Credit entries added today in the accounts ledger
+                $todaysPayments = Accounts::with('vendor', 'creator')
+                    ->whereDate('created_at', today())
+                    ->where('Credit', '>', 0)
+                    ->orderByDesc('created_at')
+                    ->get();
+
+                $todaysTotalPayments = $todaysPayments->sum('Credit');
+
+                return view('admin_dashboard', compact(
+                    'totalUsers',
+                    'todaysPayments',
+                    'todaysTotalPayments'
+                ));
             }
             else if (Auth::user()->isSalesman()) {
                 $agent = new Agent();
