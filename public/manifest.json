@@ -1,0 +1,17 @@
+{
+    "name": "Al Makkah Mobiles POS",
+    "short_name": "AMM POS",
+    "start_url": "/pos",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#0d6efd",
+    "description": "Point of Sale system for Al Makkah Mobiles",
+    "icons": [
+        {
+            "src": "/app-assets/images/logo/stack-logo.png",
+            "sizes": "any",
+            "type": "image/png"
+        }
+    ]
+}

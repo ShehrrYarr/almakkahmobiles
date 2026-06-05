@@ -228,6 +228,11 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory']
     Route::post('/batches/bulk', [AccessoryBatchController::class, 'bulkStore'])->name('batches.bulk.store');
 });
 
+// Returns a fresh CSRF token for offline-sale sync
+Route::get('/api/pos/token', function () {
+    return response()->json(['csrf' => csrf_token()]);
+})->middleware(['auth']);
+
 Route::get('/vendors/search', function (\Illuminate\Http\Request $request) {
     $q = trim($request->get('q', ''));
     return \App\Models\vendor::query()

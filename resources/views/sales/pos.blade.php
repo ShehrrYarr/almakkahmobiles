@@ -53,6 +53,17 @@
         <div class="content-header row"></div>
         <div class="content-body">
 
+            {{-- Offline Banner --}}
+            <div id="offline-banner" style="display:none;position:fixed;top:56px;left:0;right:0;z-index:9990;background:#fd7e14;color:#fff;text-align:center;padding:7px 16px;font-weight:bold;font-size:.9em;box-shadow:0 2px 8px rgba(0,0,0,.15);">
+                <i class="fa fa-exclamation-triangle mr-1"></i> You are offline — sales are saved locally and will sync automatically when internet returns
+                <span id="offline-count" class="badge badge-light text-dark ml-2" style="display:none;"></span>
+            </div>
+
+            {{-- Sync Banner --}}
+            <div id="sync-banner" style="display:none;position:fixed;top:56px;left:0;right:0;z-index:9991;background:#0d6efd;color:#fff;text-align:center;padding:7px 16px;font-weight:bold;font-size:.9em;">
+                <i class="fa fa-refresh fa-spin mr-1"></i> Syncing offline sales to server…
+            </div>
+
             @if(session('success'))
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 {{ session('success') }}
@@ -65,6 +76,9 @@
                 <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
             </div>
             @endif
+
+            {{-- Failed/Conflict sales panel --}}
+            <div id="failed-sales-panel" style="display:none;" class="mb-2"></div>
 
             {{-- Page Title --}}
             <div class="d-flex align-items-center justify-content-between mb-2">
@@ -240,6 +254,12 @@
                             </div>
                         </div>
 
+                        {{-- Sync pending offline sales (visible only when online + pending exist) --}}
+                        <button class="btn btn-warning btn-block font-weight-bold py-2 mb-2" id="sync-now-btn" onclick="syncOfflineSales()" style="display:none; font-size:1.05em;">
+                            <i class="fa fa-refresh mr-1"></i> Sync Offline Sales
+                            <span id="sync-count-badge" class="badge badge-dark ml-1"></span>
+                        </button>
+
                         {{-- Checkout --}}
                         <button class="btn btn-primary btn-block font-weight-bold py-2" id="checkout-btn" onclick="checkoutSale()" style="font-size:1.05em;">
                             <i class="fa fa-check-circle mr-1"></i> Checkout &amp; Print Invoice
@@ -409,12 +429,283 @@
 </div>
 
 <script>
-  // --- INIT ---
+  // =====================================================================
+  // OFFLINE / IndexedDB helpers
+  // =====================================================================
+  const _IDB_NAME = 'amm_pos_offline';
+  const _IDB_VER  = 1;
+  let _idb = null;
+
+  function idbOpen() {
+    if (_idb) return Promise.resolve(_idb);
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(_IDB_NAME, _IDB_VER);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('sales')) {
+          const s = db.createObjectStore('sales', { keyPath: 'id', autoIncrement: true });
+          s.createIndex('status', 'status', { unique: false });
+        }
+      };
+      req.onsuccess = e => { _idb = e.target.result; res(_idb); };
+      req.onerror   = e => rej(e.target.error);
+    });
+  }
+
+  function idbGetByStatus(status) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const idx = db.transaction('sales', 'readonly').objectStore('sales').index('status');
+      const r = idx.getAll(status);
+      r.onsuccess = () => res(r.result);
+      r.onerror   = () => rej(r.error);
+    }));
+  }
+
+  function idbAdd(payload) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const r = db.transaction('sales', 'readwrite').objectStore('sales').add({
+        payload, queued_at: new Date().toISOString(), status: 'pending', error: null
+      });
+      r.onsuccess = () => res(r.result);
+      r.onerror   = () => rej(r.error);
+    }));
+  }
+
+  function idbSetStatus(id, status, error) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const store = db.transaction('sales', 'readwrite').objectStore('sales');
+      const get = store.get(id);
+      get.onsuccess = () => {
+        const rec = get.result;
+        rec.status = status; rec.error = error || null;
+        const put = store.put(rec);
+        put.onsuccess = () => res();
+        put.onerror   = () => rej(put.error);
+      };
+      get.onerror = () => rej(get.error);
+    }));
+  }
+
+  function idbDelete(id) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const r = db.transaction('sales', 'readwrite').objectStore('sales').delete(id);
+      r.onsuccess = () => res();
+      r.onerror   = () => rej(r.error);
+    }));
+  }
+
+  // =====================================================================
+  // OFFLINE UI
+  // =====================================================================
+  async function updateOfflineUI() {
+    const pending = await idbGetByStatus('pending');
+    const failed  = await idbGetByStatus('failed');
+    const isOff   = !navigator.onLine;
+
+    document.getElementById('offline-banner').style.display = isOff ? 'block' : 'none';
+
+    const badge = document.getElementById('offline-count');
+    if (pending.length) {
+      badge.textContent = pending.length + ' sale' + (pending.length > 1 ? 's' : '') + ' pending sync';
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+
+    const syncBtn   = document.getElementById('sync-now-btn');
+    const syncBadge = document.getElementById('sync-count-badge');
+    if (!isOff && pending.length) {
+      syncBadge.textContent = pending.length;
+      syncBtn.style.display = '';
+    } else {
+      syncBtn.style.display = 'none';
+    }
+
+    renderFailedPanel(failed);
+  }
+
+  function renderFailedPanel(failed) {
+    const panel = document.getElementById('failed-sales-panel');
+    if (!panel) return;
+    if (!failed.length) { panel.style.display = 'none'; return; }
+
+    let html = '<div class="alert alert-danger mb-2"><strong><i class="fa fa-exclamation-triangle"></i> Sync Conflicts — ' + failed.length + ' sale(s) could not be synced</strong><ul class="mb-2 mt-1">';
+    failed.forEach(f => {
+      const when = f.queued_at ? f.queued_at.substring(0, 16).replace('T', ' ') : '?';
+      html += `<li class="small">${when} — <em>${f.error || 'Unknown error'}</em>
+        <button class="btn btn-sm btn-outline-danger ml-2 py-0" onclick="discardFailedSale(${f.id})">Discard</button></li>`;
+    });
+    html += '</ul></div>';
+    panel.innerHTML = html;
+    panel.style.display = '';
+  }
+
+  async function discardFailedSale(id) {
+    if (!confirm('Permanently discard this failed offline sale?')) return;
+    await idbDelete(id);
+    updateOfflineUI();
+  }
+
+  function showToast(msg, type) {
+    const old = document.getElementById('pos-toast');
+    if (old) old.remove();
+    const el = document.createElement('div');
+    el.id = 'pos-toast';
+    const bg = type === 'success' ? '#28a745' : type === 'danger' ? '#dc3545' : '#fd7e14';
+    el.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:${bg};color:#fff;padding:13px 32px;border-radius:8px;font-weight:bold;z-index:10002;font-size:1em;box-shadow:0 3px 12px rgba(0,0,0,.25);text-align:center;min-width:280px;`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 5000);
+  }
+
+  // =====================================================================
+  // SYNC
+  // =====================================================================
+  async function syncOfflineSales() {
+    const pending = await idbGetByStatus('pending');
+    if (!pending.length) return;
+
+    document.getElementById('sync-banner').style.display  = 'block';
+    document.getElementById('sync-now-btn').style.display = 'none';
+
+    // Fetch a fresh CSRF token before syncing
+    let csrf = '{{ csrf_token() }}';
+    try {
+      const tr = await fetch('/api/pos/token', { credentials: 'same-origin' });
+      const td = await tr.json();
+      if (td.csrf) csrf = td.csrf;
+    } catch(e) { /* use cached token */ }
+
+    let synced = 0, failed = 0;
+    for (const sale of pending) {
+      try {
+        const res  = await fetch('/pos/checkout', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+          body:    JSON.stringify(sale.payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          await idbSetStatus(sale.id, 'synced', null);
+          synced++;
+        } else {
+          await idbSetStatus(sale.id, 'failed', data.message || 'Server error');
+          failed++;
+        }
+      } catch(e) {
+        break; // Network dropped again — stop and retry later
+      }
+    }
+
+    document.getElementById('sync-banner').style.display = 'none';
+
+    if (synced > 0) {
+      showToast('✓ ' + synced + ' sale(s) synced successfully!' + (failed ? ' ' + failed + ' failed — see conflicts above.' : ''), 'success');
+      setTimeout(() => window.location.reload(), 1800);
+    } else if (failed > 0) {
+      showToast(failed + ' sale(s) failed to sync. See conflicts panel.', 'danger');
+      updateOfflineUI();
+    } else {
+      updateOfflineUI();
+    }
+  }
+
+  // =====================================================================
+  // FORM HELPERS
+  // =====================================================================
+  function resetSaleForm() {
+    try { $('#vendor_id').val(null).trigger('change'); } catch(e) {}
+    ['customer_name', 'customer_mobile', 'sale_comment', 'pay_amount', 'vendor_balance', 'bank_reference'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
+    const counterCard = document.getElementById('label-counter');
+    if (counterCard) counterCard.classList.add('active');
+    const counterRadio = document.querySelector('input[name="payment_method"][value="counter"]');
+    if (counterRadio) counterRadio.checked = true;
+    document.getElementById('bank-select-wrap').style.display = 'none';
+    document.getElementById('bank-ref-wrap').style.display   = 'none';
+    const bankSel = document.getElementById('bank_id');
+    if (bankSel) bankSel.value = '';
+  }
+
+  function updateBatchDropdownQty() {
+    const select = document.getElementById('manual_batch_select');
+    if (!select) return;
+    Array.from(select.options).forEach(opt => {
+      if (!opt.value || !window.batchData[opt.value]) return;
+      opt.text = opt.text.replace(/\(\d+ left\)/, '(' + window.batchData[opt.value].qty_remaining + ' left)');
+    });
+    try { $('#manual_batch_select').trigger('change'); } catch(e) {}
+  }
+
+  function buildPayload() {
+    const vendor_id       = document.getElementById('vendor_id').value || null;
+    const customer_name   = document.getElementById('customer_name').value || null;
+    const customer_mobile = document.getElementById('customer_mobile')?.value || '';
+    const comment         = (document.getElementById('sale_comment').value || '').trim() || null;
+    const netTotal        = cart.reduce((t, it) => {
+      const p = Number(it.price) || 0;
+      const d = Math.min(Math.max(Number(it.discount) || 0, 0), p);
+      return t + Math.max(p - d, 0) * (Number(it.qty) || 0);
+    }, 0);
+    const pay_amount_el  = document.getElementById('pay_amount');
+    const raw_pay_amount = pay_amount_el ? parseFloat(pay_amount_el.value || '0') : 0;
+    const methodInput    = document.querySelector('input[name="payment_method"]:checked');
+    const method         = methodInput ? methodInput.value : 'counter';
+    const bank_id        = document.getElementById('bank_id')?.value || '';
+    const reference_no   = document.getElementById('bank_reference')?.value.trim() || '';
+    const payments = [];
+    if (vendor_id) {
+      if (raw_pay_amount > 0) {
+        payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(raw_pay_amount), reference_no: method === 'bank' ? (reference_no || null) : null });
+      }
+    } else {
+      payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(netTotal), reference_no: method === 'bank' ? (reference_no || null) : null });
+    }
+    return {
+      vendor_id, customer_name, customer_mobile, comment,
+      pay_amount:     vendor_id ? Number(raw_pay_amount) : Number(netTotal),
+      payment_method: method,
+      bank_id:        method === 'bank' ? (bank_id ? Number(bank_id) : null) : null,
+      reference_no:   method === 'bank' ? (reference_no || null) : null,
+      payments,
+      items: cart.map(i => ({ barcode: i.barcode, qty: Number(i.qty), price: Number(i.price), discount: Number(i.discount || 0) })),
+      netTotal
+    };
+  }
+
+  function validatePayload(p) {
+    if (p.payment_method === 'bank' && !p.bank_id && (!p.vendor_id || p.pay_amount > 0)) {
+      alert('Please select a bank for the bank payment.');
+      return false;
+    }
+    return true;
+  }
+
+  async function saveOffline(payload) {
+    await idbAdd(payload);
+    cart.forEach(item => {
+      if (window.batchData[item.barcode]) {
+        window.batchData[item.barcode].qty_remaining = Math.max(0, window.batchData[item.barcode].qty_remaining - Number(item.qty));
+      }
+    });
+    updateBatchDropdownQty();
+    cart = [];
+    renderCart();
+    resetSaleForm();
+    await updateOfflineUI();
+    showToast('Sale saved offline! Will sync automatically when internet returns.', 'warning');
+  }
+
+  // =====================================================================
+  // INIT
+  // =====================================================================
   $(document).ready(function () {
     $('#manual_batch_select').select2({ placeholder: "Select a Batch", allowClear: true, width: '100%' });
     $('#vendor_id').select2({ placeholder: "Select a vendor", allowClear: true, width: '100%' });
 
-    // Payment method card toggle
     document.querySelectorAll('.payment-method-card').forEach(card => {
       card.addEventListener('click', function () {
         document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('active'));
@@ -425,13 +716,11 @@
       });
     });
 
-    // Vendor extra fields + balance fetch
     $('#vendor_id').on('change', function () {
-      const vendorId = $(this).val();
+      const vendorId    = $(this).val();
       const extraFields  = document.getElementById('vendor-extra-fields');
       const balanceInput = document.getElementById('vendor_balance');
       const mobileRow    = document.getElementById('customer_mobile_row');
-
       if (vendorId) {
         extraFields.style.display = '';
         mobileRow.style.display   = 'none';
@@ -440,7 +729,7 @@
         fetch(`/api/vendor-balance/${vendorId}`)
           .then(r => r.json())
           .then(d => { balanceInput.value = d.balance; })
-          .catch(() => { balanceInput.value = 'Error'; });
+          .catch(() => { balanceInput.value = navigator.onLine ? 'Error' : 'Offline'; });
       } else {
         extraFields.style.display = 'none';
         mobileRow.style.display   = '';
@@ -448,21 +737,37 @@
       }
     });
     $('#vendor_id').trigger('change');
+
+    // IndexedDB init + offline UI
+    idbOpen().then(() => updateOfflineUI());
+
+    // Request persistent storage so browser won't evict offline queue
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist();
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
   });
 
-  // Enter triggers scan
   document.getElementById('barcode_search').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); scanBarcode(); }
   });
 
-  // Mobile normalization
   document.getElementById('customer_mobile').addEventListener('input', function () {
     this.value = this.value.replace(/\D/g, '');
     if (!this.value.startsWith('923')) this.value = '923' + this.value.replace(/^923*/, '');
     if (this.value.length > 12) this.value = this.value.slice(0, 12);
   });
 
-  // --- CART ---
+  window.addEventListener('online',  () => { updateOfflineUI(); syncOfflineSales(); });
+  window.addEventListener('offline', () => { updateOfflineUI(); });
+
+  // =====================================================================
+  // CART
+  // =====================================================================
   let cart = [];
 
   function scanBarcode() {
@@ -495,7 +800,6 @@
   function renderCart() {
     const tbody = document.querySelector('#sale-cart-table tbody');
     tbody.innerHTML = '';
-
     if (!cart.length) {
       tbody.innerHTML = '<tr id="cart-empty-row"><td colspan="6" class="text-center text-muted py-3"><i class="fa fa-inbox mr-1"></i> Cart is empty</td></tr>';
       document.getElementById('cart-total').textContent = '0.00';
@@ -504,14 +808,12 @@
       if (footer) footer.textContent = '0.00';
       return;
     }
-
     cart.forEach((item, i) => {
       const unitPrice = Number(item.price) || 0;
       const unitDisc  = Math.min(Math.max(Number(item.discount) || 0, 0), unitPrice);
       item.discount   = unitDisc;
       const qty       = Number(item.qty) || 0;
       const lineTotal = Math.max(unitPrice - unitDisc, 0) * qty;
-
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="small font-weight-bold">${item.accessory}<div class="text-muted font-weight-normal" style="font-size:.8em;">${item.barcode}</div></td>
@@ -523,13 +825,11 @@
       `;
       tbody.appendChild(tr);
     });
-
     const grandTotal = cart.reduce((t, it) => {
       const p = Number(it.price) || 0;
       const d = Math.min(Math.max(Number(it.discount) || 0, 0), p);
       return t + Math.max(p - d, 0) * (Number(it.qty) || 0);
     }, 0);
-
     document.getElementById('cart-total').textContent = grandTotal.toFixed(2);
     document.getElementById('cart-badge').textContent  = cart.length;
     const footer = document.getElementById('cart-total-footer');
@@ -541,90 +841,64 @@
   function updateDiscount(i, v) { const d = Number(v); if (!isNaN(d) && d >= 0) { cart[i].discount = d; renderCart(); } }
   function removeCartItem(i)    { cart.splice(i, 1); renderCart(); }
 
-  // --- CHECKOUT ---
-  function checkoutSale() {
+  // =====================================================================
+  // CHECKOUT (online + offline)
+  // =====================================================================
+  async function checkoutSale() {
     if (!cart.length) return alert('Cart is empty!');
 
-    document.getElementById('loading-overlay').style.display = 'flex';
+    const payload = buildPayload();
+    if (!validatePayload(payload)) return;
+
+    // ---- OFFLINE PATH ----
+    if (!navigator.onLine) {
+      try { await saveOffline(payload); } catch(e) { alert('Failed to save offline: ' + e.message); }
+      return;
+    }
+
+    // ---- ONLINE PATH ----
     const btn = document.getElementById('checkout-btn');
+    document.getElementById('loading-overlay').style.display = 'flex';
     btn.disabled = true;
     btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> Processing…';
 
-    const vendor_id       = document.getElementById('vendor_id').value || null;
-    const customer_name   = document.getElementById('customer_name').value || null;
-    const customer_mobile = document.getElementById('customer_mobile')?.value || '';
-    const comment         = (document.getElementById('sale_comment').value || '').trim() || null;
-
-    const netTotal = cart.reduce((t, it) => {
-      const p = Number(it.price) || 0;
-      const d = Math.min(Math.max(Number(it.discount) || 0, 0), p);
-      return t + Math.max(p - d, 0) * (Number(it.qty) || 0);
-    }, 0);
-
-    const pay_amount_el  = document.getElementById('pay_amount');
-    const raw_pay_amount = pay_amount_el ? parseFloat(pay_amount_el.value || '0') : 0;
-    const methodInput    = document.querySelector('input[name="payment_method"]:checked');
-    const method         = methodInput ? methodInput.value : 'counter';
-    const bank_id        = document.getElementById('bank_id')?.value || '';
-    const reference_no   = document.getElementById('bank_reference')?.value.trim() || '';
-
-    const payments = [];
-    if (vendor_id) {
-      if (raw_pay_amount > 0) {
-        if (method === 'bank' && !bank_id) {
-          alert('Please select a bank for the bank payment.');
-          btn.disabled = false; btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
-          document.getElementById('loading-overlay').style.display = 'none';
-          return;
-        }
-        payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(raw_pay_amount), reference_no: method === 'bank' ? (reference_no || null) : null });
-      }
-    } else {
-      if (method === 'bank' && !bank_id) {
-        alert('Please select a bank for the bank payment.');
-        btn.disabled = false; btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
-        document.getElementById('loading-overlay').style.display = 'none';
-        return;
-      }
-      payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(netTotal), reference_no: method === 'bank' ? (reference_no || null) : null });
-    }
-
-    const payload = {
-      vendor_id, customer_name, customer_mobile, comment,
-      pay_amount: vendor_id ? Number(raw_pay_amount) : Number(netTotal),
-      payment_method: method,
-      bank_id: method === 'bank' ? (bank_id ? Number(bank_id) : null) : null,
-      reference_no: method === 'bank' ? (reference_no || null) : null,
-      payments,
-      items: cart.map(i => ({ barcode: i.barcode, qty: Number(i.qty), price: Number(i.price), discount: Number(i.discount || 0) }))
-    };
-
-    fetch('/pos/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-      body: JSON.stringify(payload)
-    })
-    .then(async res => {
+    try {
+      const res = await fetch('/pos/checkout', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+        body:    JSON.stringify(payload)
+      });
       const ct = res.headers.get('content-type') || '';
-      if (ct.includes('application/json')) return res.json();
-      const text = await res.text();
-      throw new Error('Server did not return JSON: ' + text.substring(0, 400));
-    })
-    .then(data => {
+      let data;
+      if (ct.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error('Server did not return JSON: ' + text.substring(0, 400));
+      }
       if (data.success) {
         window.open('/pos/invoice/' + data.invoice_number, '_blank');
         setTimeout(() => window.location.reload(), 700);
       } else {
         alert('Error: ' + (data.message || 'Sale failed.'));
-        btn.disabled = false; btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
         document.getElementById('loading-overlay').style.display = 'none';
       }
-    })
-    .catch(err => {
-      alert('Unexpected error: ' + err.message);
-      btn.disabled = false; btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
+    } catch (err) {
       document.getElementById('loading-overlay').style.display = 'none';
-    });
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Checkout & Print Invoice';
+      // If connection dropped during the request, save offline automatically
+      if (!navigator.onLine || err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        try {
+          await saveOffline(payload);
+          showToast('Connection lost! Sale saved offline — will sync when internet returns.', 'danger');
+        } catch(e2) { alert('Checkout failed and offline save also failed: ' + e2.message); }
+      } else {
+        alert('Unexpected error: ' + err.message);
+      }
+    }
   }
 </script>
 @endsection
