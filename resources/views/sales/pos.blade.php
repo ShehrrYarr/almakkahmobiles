@@ -101,6 +101,14 @@
     /* ── Page title ── */
     .fa-shopping-cart.text-primary { color: var(--lb-dark) !important; }
 
+    /* ── Card body / footer light silver ── */
+    .card { background: #e8eaed !important; }
+    .card .card-body,
+    .card .card-footer { background: #e8eaed !important; }
+    .card .table,
+    .card .table thead { background: #e8eaed !important; }
+    .card .table thead tr { background: #d8dadd !important; }
+
     @media (max-width: 991px) {
         .pos-sticky { position: static !important; }
     }
@@ -246,15 +254,15 @@
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
-                                    <table class="table table-sm table-hover mb-0" id="sale-cart-table">
+                                    <table class="table table-hover mb-0" id="sale-cart-table" style="font-size:0.97rem;">
                                         <thead style="background:#f8f9fa;">
                                             <tr>
-                                                <th>Item</th>
-                                                <th class="text-center">Qty</th>
-                                                <th class="text-center">Price</th>
-                                                <th class="text-center">Disc</th>
-                                                <th class="text-center">Total</th>
-                                                <th></th>
+                                                <th style="padding:6px 8px;">Item</th>
+                                                <th class="text-center" style="padding:6px 4px;">Qty</th>
+                                                <th class="text-center" style="padding:6px 4px;">Price</th>
+                                                <th class="text-center" style="padding:6px 4px;">Disc</th>
+                                                <th class="text-center" style="padding:6px 4px;">Total</th>
+                                                <th style="padding:6px 4px;"></th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -282,9 +290,11 @@
                         </button>
 
                         {{-- Checkout --}}
-                        <button class="btn btn-primary btn-block font-weight-bold py-2 mb-2" id="checkout-btn" onclick="checkoutSale()" style="font-size:1.05em;">
-                            <i class="fa fa-check-circle mr-1"></i> Checkout &amp; Print Invoice
-                        </button>
+                        <div class="d-flex justify-content-end mb-2">
+                            <button class="btn btn-primary font-weight-bold py-2" id="checkout-btn" onclick="checkoutSale()" style="font-size:1.05em; min-width:260px;">
+                                <i class="fa fa-check-circle mr-1"></i> Checkout &amp; Print Invoice
+                            </button>
+                        </div>
 
                         {{-- Payment --}}
                         <div class="card shadow-sm mb-2">
@@ -873,12 +883,12 @@
       const lineTotal = Math.max(unitPrice - unitDisc, 0) * qty;
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="small font-weight-bold">${item.accessory}<div class="text-muted font-weight-normal" style="font-size:.8em;">${item.barcode}</div></td>
-        <td class="text-center"><input class="cart-input" type="number" value="${qty}" min="1" onchange="updateQuantity(${i}, this.value)"></td>
-        <td class="text-center"><input class="cart-input" type="number" value="${unitPrice.toFixed(2)}" min="0" step="0.01" onchange="updatePrice(${i}, this.value)"></td>
-        <td class="text-center"><input class="cart-input" type="number" value="${unitDisc.toFixed(2)}" min="0" step="0.01" onchange="updateDiscount(${i}, this.value)"></td>
-        <td class="text-center font-weight-bold small">${lineTotal.toFixed(2)}</td>
-        <td class="text-center"><button type="button" class="cart-item-remove" onclick="removeCartItem(${i})"><i class="fa fa-trash"></i></button></td>
+        <td class="font-weight-bold" style="padding:5px 8px;font-size:0.97rem;">${item.accessory}<div class="text-muted font-weight-normal" style="font-size:.8em;">${item.barcode}</div></td>
+        <td class="text-center" style="padding:5px 4px;"><input class="cart-input" type="number" value="${qty}" min="1" onchange="updateQuantity(${i}, this.value)"></td>
+        <td class="text-center" style="padding:5px 4px;"><input class="cart-input" type="number" value="${unitPrice.toFixed(2)}" min="0" step="0.01" onchange="updatePrice(${i}, this.value)"></td>
+        <td class="text-center" style="padding:5px 4px;"><input class="cart-input" type="number" value="${unitDisc.toFixed(2)}" min="0" step="0.01" onchange="updateDiscount(${i}, this.value)"></td>
+        <td class="text-center font-weight-bold" style="padding:5px 4px;font-size:0.97rem;">${lineTotal.toFixed(2)}</td>
+        <td class="text-center" style="padding:5px 4px;"><button type="button" class="cart-item-remove" onclick="removeCartItem(${i})"><i class="fa fa-trash"></i></button></td>
       `;
       tbody.appendChild(tr);
     });
