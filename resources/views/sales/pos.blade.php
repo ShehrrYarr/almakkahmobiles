@@ -102,7 +102,7 @@
     .fa-shopping-cart.text-primary { color: var(--lb-dark) !important; }
 
     /* ── Card body / footer light silver ── */
-    .card { background: #e8eaed !important; }
+    .card { background: #e8eaed !important; border-radius: 14px !important; overflow: hidden; }
     .card .card-body,
     .card .card-footer { background: #e8eaed !important; }
     .card .table,
@@ -156,7 +156,7 @@
 
             <div class="row">
                 {{-- ===== LEFT COLUMN (compact) ===== --}}
-                <div class="col-lg-4">
+                <div class="col-lg-5">
 
                     {{-- Customer / Vendor --}}
                     <div class="card shadow-sm mb-2">
@@ -240,7 +240,7 @@
                 </div>{{-- /left --}}
 
                 {{-- ===== RIGHT COLUMN (cart) ===== --}}
-                <div class="col-lg-8">
+                <div class="col-lg-7">
                     <div class="pos-sticky" style="position:sticky; top:80px;">
 
                         {{-- Cart --}}
