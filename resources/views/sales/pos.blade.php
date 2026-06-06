@@ -94,7 +94,7 @@
     .cart-input {
         width: 72px; border: 1px solid var(--lb-light);
         border-radius: 6px; padding: 4px 6px;
-        text-align: center; font-size: .92em;
+        text-align: center; font-size: 1.05rem; font-weight: 700;
     }
     .cart-input:focus { outline: none; border-color: var(--lb-dark); }
 
@@ -278,7 +278,7 @@
                             @if(auth()->user()->isAdmin())
                             <div class="card-footer bg-white text-right py-2">
                                 <span class="text-muted small">Grand Total</span>
-                                <span class="font-weight-bold text-success ml-2" style="font-size:1.15em;">Rs. <span id="cart-total-footer">0.00</span></span>
+                                <span class="font-weight-bold ml-2" style="font-size:1.15em;color:#15803d;">Rs. <span id="cart-total-footer">0.00</span></span>
                             </div>
                             @endif
                         </div>
@@ -883,11 +883,11 @@
       const lineTotal = Math.max(unitPrice - unitDisc, 0) * qty;
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="font-weight-bold" style="padding:5px 8px;font-size:0.97rem;">${item.accessory}<div class="text-muted font-weight-normal" style="font-size:.8em;">${item.barcode}</div></td>
+        <td class="font-weight-bold" style="padding:5px 8px;font-size:1.08rem;color:#000;">${item.accessory}<div class="text-muted font-weight-normal" style="font-size:.78em;">${item.barcode}</div></td>
         <td class="text-center" style="padding:5px 4px;"><input class="cart-input" type="number" value="${qty}" min="1" onchange="updateQuantity(${i}, this.value)"></td>
-        <td class="text-center" style="padding:5px 4px;"><input class="cart-input" type="number" value="${unitPrice.toFixed(2)}" min="0" step="0.01" onchange="updatePrice(${i}, this.value)"></td>
-        <td class="text-center" style="padding:5px 4px;"><input class="cart-input" type="number" value="${unitDisc.toFixed(2)}" min="0" step="0.01" onchange="updateDiscount(${i}, this.value)"></td>
-        <td class="text-center font-weight-bold" style="padding:5px 4px;font-size:0.97rem;">${lineTotal.toFixed(2)}</td>
+        <td class="text-center" style="padding:5px 4px;"><input class="cart-input" type="number" value="${parseFloat(unitPrice.toFixed(2))}" min="0" step="0.01" onchange="updatePrice(${i}, this.value)"></td>
+        <td class="text-center" style="padding:5px 4px;"><input class="cart-input" type="number" value="${parseFloat(unitDisc.toFixed(2))}" min="0" step="0.01" onchange="updateDiscount(${i}, this.value)"></td>
+        <td class="text-center font-weight-bold" style="padding:5px 4px;font-size:1.1rem;">${lineTotal.toFixed(2)}</td>
         <td class="text-center" style="padding:5px 4px;"><button type="button" class="cart-item-remove" onclick="removeCartItem(${i})"><i class="fa fa-trash"></i></button></td>
       `;
       tbody.appendChild(tr);
