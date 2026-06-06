@@ -2,8 +2,29 @@
 @section('content')
 
 <style>
+    /* ── POS light-blue gradient scheme ── */
+    :root {
+        --lb-dark:   #4a90c4;
+        --lb-mid:    #7ab8e0;
+        --lb-light:  #b8d9f2;
+        --lb-xlight: #e8f4fc;
+        --lb-text:   #fff;
+    }
+
+    /* ── Card headers ── */
+    .card > .card-header {
+        background: linear-gradient(135deg, var(--lb-dark) 0%, var(--lb-mid) 55%, var(--lb-light) 100%) !important;
+        color: var(--lb-text) !important;
+        border-bottom: none !important;
+    }
+    .card > .card-header span,
+    .card > .card-header h6,
+    .card > .card-header h5,
+    .card > .card-header i { color: var(--lb-text) !important; }
+
+    /* ── Payment method cards ── */
     .payment-method-card {
-        border: 2px solid #dee2e6;
+        border: 2px solid var(--lb-light);
         border-radius: 10px;
         padding: 12px 18px;
         cursor: pointer;
@@ -11,36 +32,74 @@
         background: #fff;
         user-select: none;
     }
-    .payment-method-card:hover { border-color: #0d6efd; background: #f0f6ff; }
-    .payment-method-card.active { border-color: #0d6efd; background: #e8f0fe; }
+    .payment-method-card:hover  {
+        border-color: var(--lb-mid);
+        background: var(--lb-xlight);
+    }
+    .payment-method-card.active {
+        border-color: var(--lb-dark);
+        background: linear-gradient(135deg, var(--lb-xlight), #fff);
+        box-shadow: inset 0 1px 4px rgba(74,144,196,.15);
+    }
     .payment-method-card input[type="radio"] { display: none; }
 
+    /* ── Checkout button — gradient green ── */
+    #checkout-btn {
+        background: linear-gradient(135deg, #1a7a3a 0%, #2ecc6a 100%) !important;
+        border: none !important;
+        color: #fff !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,.2);
+    }
+    #checkout-btn:hover { filter: brightness(1.08); }
+
+    /* ── Scan button ── */
+    .btn-warning {
+        background: linear-gradient(135deg, var(--lb-dark) 0%, var(--lb-light) 100%) !important;
+        border: none !important;
+        color: #fff !important;
+    }
+    .btn-warning:hover { filter: brightness(1.08); }
+
+    /* ── Add / secondary buttons ── */
+    .btn-secondary {
+        background: linear-gradient(135deg, var(--lb-dark) 0%, var(--lb-mid) 100%) !important;
+        border: none !important;
+        color: #fff !important;
+    }
+    .btn-secondary:hover { filter: brightness(1.08); }
+
+    /* ── Sync button ── */
+    #sync-now-btn {
+        background: linear-gradient(135deg, var(--lb-dark), var(--lb-light)) !important;
+        border: none !important;
+        color: #fff !important;
+    }
+
+    /* ── Cart badge ── */
+    #cart-badge {
+        background: linear-gradient(135deg, var(--lb-dark), var(--lb-mid)) !important;
+        color: #fff !important;
+        font-size: .75em;
+        vertical-align: middle;
+    }
+
+    /* ── Cart inputs ── */
     .cart-item-remove {
-        background: none;
-        border: none;
-        color: #dc3545;
-        font-size: 1.1em;
-        cursor: pointer;
-        padding: 2px 6px;
-        border-radius: 4px;
-        transition: background .15s;
+        background: none; border: none; color: #dc3545;
+        font-size: 1.1em; cursor: pointer;
+        padding: 2px 6px; border-radius: 4px; transition: background .15s;
     }
     .cart-item-remove:hover { background: #fde8ea; }
 
     .cart-input {
-        width: 72px;
-        border: 1px solid #dee2e6;
-        border-radius: 6px;
-        padding: 4px 6px;
-        text-align: center;
-        font-size: .92em;
+        width: 72px; border: 1px solid var(--lb-light);
+        border-radius: 6px; padding: 4px 6px;
+        text-align: center; font-size: .92em;
     }
-    .cart-input:focus { outline: none; border-color: #0d6efd; }
+    .cart-input:focus { outline: none; border-color: var(--lb-dark); }
 
-    #cart-badge {
-        font-size: .75em;
-        vertical-align: middle;
-    }
+    /* ── Page title ── */
+    .fa-shopping-cart.text-primary { color: var(--lb-dark) !important; }
 
     @media (max-width: 991px) {
         .pos-sticky { position: static !important; }
@@ -93,23 +152,23 @@
 
                     {{-- Customer / Vendor --}}
                     <div class="card shadow-sm mb-2">
-                        <div class="card-header py-1 bg-white border-bottom">
-                            <span class="small font-weight-bold"><i class="fa fa-user text-secondary mr-1"></i> Customer / Vendor</span>
+                        <div class="card-header py-2 bg-white border-bottom">
+                            <span class="font-weight-bold" style="font-size:1rem;"><i class="fa fa-user text-secondary mr-1"></i> Customer / Vendor</span>
                         </div>
                         <div class="card-body p-2">
                             <form method="POST" action="{{ route('sales.store') }}" id="sale-meta-form">
                                 @csrf
-                                <select name="vendor_id" id="vendor_id" class="form-control form-control-sm mb-1">
+                                <select name="vendor_id" id="vendor_id" class="form-control mb-1">
                                     <option value="">Walk-in Customer</option>
                                     @foreach($vendors as $vendor)
                                     <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
                                     @endforeach
                                 </select>
-                                <input type="text" name="customer_name" id="customer_name" class="form-control form-control-sm mb-1" placeholder="Customer name (optional)">
+                                <input type="text" name="customer_name" id="customer_name" class="form-control mb-1" placeholder="Customer name (optional)">
                                 <div id="customer_mobile_row" style="display:none;">
-                                    <input type="text" name="customer_mobile" id="customer_mobile" class="form-control form-control-sm mb-1" placeholder="Mobile: 923XXXXXXXXX">
+                                    <input type="text" name="customer_mobile" id="customer_mobile" class="form-control mb-1" placeholder="Mobile: 923XXXXXXXXX">
                                 </div>
-                                <textarea id="sale_comment" name="comment" rows="1" class="form-control form-control-sm" placeholder="Comment (optional)"></textarea>
+                                <textarea id="sale_comment" name="comment" rows="1" class="form-control" placeholder="Comment (optional)"></textarea>
                             </form>
                         </div>
                     </div>
@@ -128,19 +187,19 @@
 
                     {{-- Scan / Add --}}
                     <div class="card shadow-sm mb-2">
-                        <div class="card-header py-1 bg-white border-bottom">
-                            <span class="small font-weight-bold"><i class="fa fa-barcode text-secondary mr-1"></i> Add Items</span>
+                        <div class="card-header py-2 bg-white border-bottom">
+                            <span class="font-weight-bold" style="font-size:1rem;"><i class="fa fa-barcode text-secondary mr-1"></i> Add Items</span>
                         </div>
                         <div class="card-body p-2">
-                            <div class="input-group input-group-sm mb-1">
+                            <div class="input-group mb-1">
                                 <input type="text" id="barcode_search" class="form-control" placeholder="Scan barcode…" autocomplete="off">
                                 <div class="input-group-append">
-                                    <button type="button" class="btn btn-warning btn-sm font-weight-bold" onclick="scanBarcode()">
+                                    <button type="button" class="btn btn-warning font-weight-bold" onclick="scanBarcode()">
                                         <i class="fa fa-search"></i> Scan
                                     </button>
                                 </div>
                             </div>
-                            <div class="input-group input-group-sm">
+                            <div class="mt-2">
                                 <select id="manual_batch_select" class="form-control">
                                     <option value="">Select batch manually…</option>
                                     @foreach($batches as $batch)
@@ -149,11 +208,9 @@
                                     </option>
                                     @endforeach
                                 </select>
-                                <div class="input-group-append">
-                                    <button type="button" class="btn btn-secondary btn-sm font-weight-bold" onclick="addSelectedBatch()">
-                                        <i class="fa fa-plus"></i> Add
-                                    </button>
-                                </div>
+                                <button type="button" class="btn btn-secondary font-weight-bold mt-2" onclick="addSelectedBatch()">
+                                    <i class="fa fa-plus"></i> Add
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -218,42 +275,6 @@
                             @endif
                         </div>
 
-                        {{-- Payment --}}
-                        <div class="card shadow-sm mb-2">
-                            <div class="card-header py-2 bg-white border-bottom">
-                                <h6 class="mb-0 font-weight-bold"><i class="fa fa-credit-card text-secondary mr-1"></i> Payment</h6>
-                            </div>
-                            <div class="card-body" id="payment-section">
-                                <div class="d-flex gap-2 mb-3" style="gap:10px;">
-                                    <label class="payment-method-card active flex-fill text-center" id="label-counter">
-                                        <input type="radio" name="payment_method" value="counter" checked>
-                                        <div><i class="fa fa-money fa-lg text-success mb-1"></i></div>
-                                        <div class="font-weight-bold small">Counter (Cash)</div>
-                                    </label>
-                                    <label class="payment-method-card flex-fill text-center" id="label-bank">
-                                        <input type="radio" name="payment_method" value="bank">
-                                        <div><i class="fa fa-university fa-lg text-primary mb-1"></i></div>
-                                        <div class="font-weight-bold small">Bank Transfer</div>
-                                    </label>
-                                </div>
-
-                                <div id="bank-select-wrap" style="display:none;" class="mb-2">
-                                    <label class="small font-weight-bold text-muted mb-1">Select Bank</label>
-                                    <select id="bank_id" class="form-control">
-                                        <option value="">Select Bank</option>
-                                        @foreach($banks as $bank)
-                                        <option value="{{ $bank->id }}">{{ $bank->name }}{{ $bank->account_no ? ' — '.$bank->account_no : '' }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-
-                                <div id="bank-ref-wrap" style="display:none;" class="mb-2">
-                                    <label class="small font-weight-bold text-muted mb-1">Reference / Slip #</label>
-                                    <input type="text" id="bank_reference" class="form-control" placeholder="Optional">
-                                </div>
-                            </div>
-                        </div>
-
                         {{-- Sync pending offline sales (visible only when online + pending exist) --}}
                         <button class="btn btn-warning btn-block font-weight-bold py-2 mb-2" id="sync-now-btn" onclick="syncOfflineSales()" style="display:none; font-size:1.05em;">
                             <i class="fa fa-refresh mr-1"></i> Sync Offline Sales
@@ -261,9 +282,45 @@
                         </button>
 
                         {{-- Checkout --}}
-                        <button class="btn btn-primary btn-block font-weight-bold py-2" id="checkout-btn" onclick="checkoutSale()" style="font-size:1.05em;">
+                        <button class="btn btn-primary btn-block font-weight-bold py-2 mb-2" id="checkout-btn" onclick="checkoutSale()" style="font-size:1.05em;">
                             <i class="fa fa-check-circle mr-1"></i> Checkout &amp; Print Invoice
                         </button>
+
+                        {{-- Payment --}}
+                        <div class="card shadow-sm mb-2">
+                            <div class="card-header py-1 bg-white border-bottom">
+                                <span class="small font-weight-bold"><i class="fa fa-credit-card text-secondary mr-1"></i> Payment</span>
+                            </div>
+                            <div class="card-body p-2" id="payment-section">
+                                <div class="d-flex mb-2" style="gap:8px;">
+                                    <label class="payment-method-card active flex-fill text-center" id="label-counter" style="padding:8px 10px;">
+                                        <input type="radio" name="payment_method" value="counter" checked>
+                                        <div><i class="fa fa-money text-success mb-1"></i></div>
+                                        <div class="font-weight-bold" style="font-size:0.75rem;">Counter (Cash)</div>
+                                    </label>
+                                    <label class="payment-method-card flex-fill text-center" id="label-bank" style="padding:8px 10px;">
+                                        <input type="radio" name="payment_method" value="bank">
+                                        <div><i class="fa fa-university text-primary mb-1"></i></div>
+                                        <div class="font-weight-bold" style="font-size:0.75rem;">Bank Transfer</div>
+                                    </label>
+                                </div>
+
+                                <div id="bank-select-wrap" style="display:none;" class="mb-1">
+                                    <label class="small font-weight-bold text-muted mb-1">Select Bank</label>
+                                    <select id="bank_id" class="form-control form-control-sm">
+                                        <option value="">Select Bank</option>
+                                        @foreach($banks as $bank)
+                                        <option value="{{ $bank->id }}">{{ $bank->name }}{{ $bank->account_no ? ' — '.$bank->account_no : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div id="bank-ref-wrap" style="display:none;" class="mb-1">
+                                    <label class="small font-weight-bold text-muted mb-1">Reference / Slip #</label>
+                                    <input type="text" id="bank_reference" class="form-control form-control-sm" placeholder="Optional">
+                                </div>
+                            </div>
+                        </div>
 
                     </div>{{-- /sticky --}}
                 </div>{{-- /right --}}
