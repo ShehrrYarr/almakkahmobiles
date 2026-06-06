@@ -60,7 +60,7 @@
             <h5>Sale Items — Process Return</h5>
             <button type="button" class="r-close" id="returnCloseBtn">&times;</button>
         </div>
-        <form id="return-items-form" method="POST" action="">
+        <form id="return-items-form" method="POST" action="" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
             @csrf
             <div class="r-body" id="returnModalBody">
                 <div class="text-center py-3"><i class="fa fa-spinner fa-spin"></i> Loading...</div>
