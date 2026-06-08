@@ -277,6 +277,10 @@
                                                         <a class="menu-item" href="/loginhistory"
                                                                 data-i18n="1 columns">Login Histories</a>
                                                 </li>
+                                                <li class="@if (\Request::is('admin/tools')) active @endif">
+                                                        <a class="menu-item" href="/admin/tools"
+                                                                data-i18n="1 columns">Admin Tools</a>
+                                                </li>
                                         </ul>
                                 </li>
                                 @endif

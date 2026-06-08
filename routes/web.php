@@ -125,6 +125,14 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])-
 
 
 
+// Admin Tools (migrate, git pull, optimize)
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    Route::get('/admin/tools', [\App\Http\Controllers\AdminToolsController::class, 'index'])->name('admin.tools');
+    Route::post('/admin/tools/migrate', [\App\Http\Controllers\AdminToolsController::class, 'migrate'])->name('admin.tools.migrate');
+    Route::post('/admin/tools/pull', [\App\Http\Controllers\AdminToolsController::class, 'pull'])->name('admin.tools.pull');
+    Route::post('/admin/tools/optimize', [\App\Http\Controllers\AdminToolsController::class, 'optimize'])->name('admin.tools.optimize');
+});
+
 //Custom Login Restriction Routes — admin only
 Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function () {
     Route::get('/showlogin', [LoginRestrictionController::class, 'showLogin'])->name('showlogin');
