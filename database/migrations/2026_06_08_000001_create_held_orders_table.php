@@ -8,6 +8,10 @@ class CreateHeldOrdersTable extends Migration
 {
     public function up()
     {
+        if (Schema::hasTable('held_orders')) {
+            return;
+        }
+
         Schema::create('held_orders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
