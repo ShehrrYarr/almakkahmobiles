@@ -1010,10 +1010,21 @@
     body.innerHTML = '<div class="text-center py-4 text-muted"><i class="fa fa-spinner fa-spin mr-1"></i> Loading…</div>';
     try {
       const res  = await fetch('/pos/held', { credentials: 'same-origin' });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch(e) {
+        body.innerHTML = '<div class="text-center py-4 text-danger"><strong>Server error:</strong><pre class="text-left mt-2 small" style="max-height:200px;overflow:auto;">' + text.substring(0, 1000) + '</pre></div>';
+        return;
+      }
+      if (!res.ok) {
+        body.innerHTML = '<div class="text-center py-4 text-danger">Error ' + res.status + ': ' + (data.message || 'Unknown error') + '</div>';
+        return;
+      }
       renderHeldOrders(data.orders || []);
     } catch (e) {
-      body.innerHTML = '<div class="text-center py-4 text-danger">Failed to load held orders.</div>';
+      body.innerHTML = '<div class="text-center py-4 text-danger">Network error: ' + e.message + '</div>';
     }
   }
 
