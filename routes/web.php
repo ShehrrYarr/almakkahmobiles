@@ -174,6 +174,9 @@ Route::get('/sales/{sale}/items', [\App\Http\Controllers\SaleController::class, 
 Route::get('/pos', [SaleController::class, 'pos'])->name('sales.pos');
 Route::post('/pos/checkout', [SaleController::class, 'checkout'])->name('sales.checkout');
 Route::get('/pos/invoice/{sale}', [SaleController::class, 'invoice'])->name('sales.invoice');
+Route::post('/pos/hold', [\App\Http\Controllers\HeldOrderController::class, 'store'])->name('pos.hold')->middleware(['auth', 'login.time.restrict']);
+Route::get('/pos/held', [\App\Http\Controllers\HeldOrderController::class, 'index'])->name('pos.held')->middleware(['auth', 'login.time.restrict']);
+Route::delete('/pos/hold/{id}', [\App\Http\Controllers\HeldOrderController::class, 'destroy'])->name('pos.hold.destroy')->middleware(['auth', 'login.time.restrict']);
 Route::get('/reports/sales', [\App\Http\Controllers\SaleController::class, 'salesReport'])->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts']);
 Route::get('/accessoryreport', [SaleController::class, 'accessoryReport'])->name('saccessoryreport')->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts']);
 // routes/web.php

@@ -52,6 +52,22 @@
     }
     #checkout-btn:hover { filter: brightness(1.08); }
 
+    #hold-btn {
+        background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%) !important;
+        border: none !important;
+        color: #fff !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,.2);
+    }
+    #hold-btn:hover { filter: brightness(1.08); }
+
+    #held-orders-btn {
+        background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%) !important;
+        border: none !important;
+        color: #fff !important;
+        font-size: .8rem;
+    }
+    #held-orders-btn:hover { filter: brightness(1.08); }
+
     /* ── Scan button ── */
     .btn-warning {
         background: linear-gradient(135deg, var(--lb-dark) 0%, var(--lb-light) 100%) !important;
@@ -250,7 +266,13 @@
                                     <i class="fa fa-shopping-cart text-secondary mr-1"></i> Cart
                                     <span id="cart-badge" class="badge badge-primary ml-1">0</span>
                                 </h6>
-                                <span class="font-weight-bold text-success">Rs. <span id="cart-total">0.00</span></span>
+                                <div class="d-flex align-items-center" style="gap:8px;">
+                                    <button class="btn btn-sm font-weight-bold" id="held-orders-btn" onclick="openHeldOrdersModal()">
+                                        <i class="fa fa-pause mr-1"></i> Held Orders
+                                        <span id="held-badge" class="badge badge-dark ml-1" style="display:none;">0</span>
+                                    </button>
+                                    <span class="font-weight-bold text-success">Rs. <span id="cart-total">0.00</span></span>
+                                </div>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
@@ -289,8 +311,11 @@
                             <span id="sync-count-badge" class="badge badge-dark ml-1"></span>
                         </button>
 
-                        {{-- Checkout --}}
-                        <div class="d-flex justify-content-end mb-2">
+                        {{-- Checkout / Hold --}}
+                        <div class="d-flex justify-content-end mb-2" style="gap:8px;">
+                            <button class="btn font-weight-bold py-2" id="hold-btn" onclick="holdOrder()" style="font-size:1.05em;">
+                                <i class="fa fa-pause mr-1"></i> Hold Order
+                            </button>
                             <button class="btn btn-primary font-weight-bold py-2" id="checkout-btn" onclick="checkoutSale()" style="font-size:1.05em; min-width:260px;">
                                 <i class="fa fa-check-circle mr-1"></i> Checkout &amp; Print Invoice
                             </button>
@@ -483,6 +508,21 @@
                 @endif
             </div>
 
+        </div>
+    </div>
+</div>
+
+{{-- Held Orders Modal --}}
+<div class="modal fade" id="held-orders-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header border-0" style="background:linear-gradient(135deg,#4a90c4 0%,#7ab8e0 100%);color:#fff;">
+                <h5 class="modal-title font-weight-bold"><i class="fa fa-pause mr-2"></i> Held Orders</h5>
+                <button type="button" class="close" data-dismiss="modal" style="color:#fff;opacity:1;"><span>&times;</span></button>
+            </div>
+            <div class="modal-body p-0" id="held-orders-body">
+                <div class="text-center py-4 text-muted"><i class="fa fa-spinner fa-spin mr-1"></i> Loading…</div>
+            </div>
         </div>
     </div>
 </div>
@@ -808,6 +848,9 @@
     // IndexedDB init + offline UI
     idbOpen().then(() => updateOfflineUI());
 
+    // Held orders badge
+    refreshHeldBadge();
+
     // Request persistent storage so browser won't evict offline queue
     if (navigator.storage && navigator.storage.persist) {
       navigator.storage.persist();
@@ -907,6 +950,147 @@
   function updatePrice(i, v)    { const p = Number(v); if (!isNaN(p) && p >= 0) { cart[i].price = p; if ((Number(cart[i].discount)||0) > p) cart[i].discount = p; renderCart(); } }
   function updateDiscount(i, v) { const d = Number(v); if (!isNaN(d) && d >= 0) { cart[i].discount = d; renderCart(); } }
   function removeCartItem(i)    { cart.splice(i, 1); renderCart(); }
+
+  // =====================================================================
+  // HELD ORDERS
+  // =====================================================================
+  async function holdOrder() {
+    if (!cart.length) return alert('Cart is empty — nothing to hold!');
+
+    const vendor_id       = document.getElementById('vendor_id').value || null;
+    const customer_name   = (document.getElementById('customer_name').value || '').trim() || null;
+    const customer_mobile = document.getElementById('customer_mobile')?.value || null;
+    const comment         = (document.getElementById('sale_comment').value || '').trim() || null;
+
+    const btn = document.getElementById('hold-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> Holding…';
+
+    try {
+      const res = await fetch('/pos/hold', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+        body:    JSON.stringify({
+          cart_items:      cart.map(i => ({ barcode: i.barcode, accessory: i.accessory, qty: Number(i.qty), price: Number(i.price), discount: Number(i.discount || 0) })),
+          vendor_id, customer_name, customer_mobile, comment,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        cart = [];
+        renderCart();
+        resetSaleForm();
+        await refreshHeldBadge();
+        showToast('Order held! Resume it from Held Orders.', 'success');
+      } else {
+        alert('Failed to hold order: ' + (data.message || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-pause mr-1"></i> Hold Order';
+    }
+  }
+
+  async function refreshHeldBadge() {
+    try {
+      const res   = await fetch('/pos/held', { credentials: 'same-origin' });
+      const data  = await res.json();
+      const badge = document.getElementById('held-badge');
+      const count = (data.orders || []).length;
+      badge.textContent  = count;
+      badge.style.display = count > 0 ? '' : 'none';
+    } catch (e) {}
+  }
+
+  async function openHeldOrdersModal() {
+    $('#held-orders-modal').modal('show');
+    const body = document.getElementById('held-orders-body');
+    body.innerHTML = '<div class="text-center py-4 text-muted"><i class="fa fa-spinner fa-spin mr-1"></i> Loading…</div>';
+    try {
+      const res  = await fetch('/pos/held', { credentials: 'same-origin' });
+      const data = await res.json();
+      renderHeldOrders(data.orders || []);
+    } catch (e) {
+      body.innerHTML = '<div class="text-center py-4 text-danger">Failed to load held orders.</div>';
+    }
+  }
+
+  function renderHeldOrders(orders) {
+    const body = document.getElementById('held-orders-body');
+    body.dataset.orders = JSON.stringify(orders);
+
+    if (!orders.length) {
+      body.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa fa-inbox fa-2x mb-2 d-block"></i> No held orders.</div>';
+      return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-hover mb-0" style="font-size:.95rem;">';
+    html += '<thead style="background:#f1f3f5;"><tr><th>Time Held</th><th>Customer</th><th class="text-center">Items</th><th>Total</th><th>Comment</th><th></th></tr></thead><tbody>';
+    orders.forEach(o => {
+      html += `<tr>
+        <td class="small align-middle">${o.held_at}</td>
+        <td class="align-middle font-weight-bold">${o.customer}</td>
+        <td class="text-center align-middle">${o.item_count}</td>
+        <td class="align-middle font-weight-bold text-success">Rs. ${o.total}</td>
+        <td class="small text-muted align-middle">${o.comment || '—'}</td>
+        <td class="align-middle text-nowrap">
+          <button class="btn btn-sm btn-success font-weight-bold mr-1" onclick="resumeOrder(${o.id})"><i class="fa fa-play mr-1"></i>Resume</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteHeldOrder(${o.id}, false)"><i class="fa fa-trash"></i></button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+    body.innerHTML = html;
+  }
+
+  async function resumeOrder(id) {
+    const body   = document.getElementById('held-orders-body');
+    const orders = JSON.parse(body.dataset.orders || '[]');
+    const order  = orders.find(o => o.id === id);
+    if (!order) return;
+
+    if (cart.length && !confirm('This will replace your current cart with the held order. Continue?')) return;
+
+    cart = order.cart_items.map(i => ({
+      barcode:   i.barcode,
+      accessory: i.accessory,
+      qty:       Number(i.qty),
+      price:     Number(i.price),
+      discount:  Number(i.discount || 0),
+    }));
+    renderCart();
+
+    // Restore form fields
+    if (order.vendor_id) {
+      try { $('#vendor_id').val(order.vendor_id).trigger('change'); } catch (e) {}
+    } else {
+      try { $('#vendor_id').val(null).trigger('change'); } catch (e) {}
+      if (order.customer_name)   document.getElementById('customer_name').value   = order.customer_name;
+      if (order.customer_mobile) document.getElementById('customer_mobile').value = order.customer_mobile;
+    }
+    if (order.comment) document.getElementById('sale_comment').value = order.comment;
+
+    // Remove from DB silently
+    await deleteHeldOrder(id, true);
+
+    $('#held-orders-modal').modal('hide');
+    showToast('Order resumed!', 'success');
+  }
+
+  async function deleteHeldOrder(id, silent) {
+    if (!silent && !confirm('Delete this held order?')) return;
+    try {
+      await fetch('/pos/hold/' + id, {
+        method:  'DELETE',
+        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+        credentials: 'same-origin',
+      });
+    } catch (e) {}
+    await refreshHeldBadge();
+    if (!silent) await openHeldOrdersModal();
+  }
 
   // =====================================================================
   // CHECKOUT (online + offline)
