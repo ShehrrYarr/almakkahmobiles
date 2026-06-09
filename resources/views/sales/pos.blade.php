@@ -540,7 +540,7 @@
   // OFFLINE / IndexedDB helpers
   // =====================================================================
   const _IDB_NAME = 'amm_pos_offline';
-  const _IDB_VER  = 1;
+  const _IDB_VER  = 2;   // v2: added held_orders store
   let _idb = null;
 
   function idbOpen() {
@@ -553,10 +553,44 @@
           const s = db.createObjectStore('sales', { keyPath: 'id', autoIncrement: true });
           s.createIndex('status', 'status', { unique: false });
         }
+        if (!db.objectStoreNames.contains('held_orders')) {
+          db.createObjectStore('held_orders', { keyPath: 'id', autoIncrement: true });
+        }
       };
       req.onsuccess = e => { _idb = e.target.result; res(_idb); };
       req.onerror   = e => rej(e.target.error);
     });
+  }
+
+  // ---- Held-order IDB helpers ----
+  function idbHeldAdd(data) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const r = db.transaction('held_orders', 'readwrite')
+                  .objectStore('held_orders')
+                  .add({ ...data, held_at: new Date().toISOString() });
+      r.onsuccess = () => res(r.result);
+      r.onerror   = () => rej(r.error);
+    }));
+  }
+
+  function idbHeldGetAll() {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const r = db.transaction('held_orders', 'readonly')
+                  .objectStore('held_orders')
+                  .getAll();
+      r.onsuccess = () => res(r.result);
+      r.onerror   = () => rej(r.error);
+    }));
+  }
+
+  function idbHeldDelete(id) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const r = db.transaction('held_orders', 'readwrite')
+                  .objectStore('held_orders')
+                  .delete(id);
+      r.onsuccess = () => res();
+      r.onerror   = () => rej(r.error);
+    }));
   }
 
   function idbGetByStatus(status) {
@@ -717,6 +751,42 @@
     }
   }
 
+  async function syncHeldOrders() {
+    const local = await idbHeldGetAll();
+    if (!local.length) return;
+
+    let csrf = '{{ csrf_token() }}';
+    try {
+      const tr = await fetch('/api/pos/token', { credentials: 'same-origin' });
+      const td = await tr.json();
+      if (td.csrf) csrf = td.csrf;
+    } catch(e) {}
+
+    let synced = 0;
+    for (const order of local) {
+      try {
+        const res = await fetch('/pos/hold', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+          body:    JSON.stringify({
+            cart_items:      order.cart_items,
+            vendor_id:       order.vendor_id       || null,
+            customer_name:   order.customer_name   || null,
+            customer_mobile: order.customer_mobile || null,
+            comment:         order.comment         || null,
+          }),
+        });
+        const data = await res.json();
+        if (data.success) { await idbHeldDelete(order.id); synced++; }
+      } catch(e) { break; }  // network dropped again — stop
+    }
+
+    if (synced > 0) {
+      await refreshHeldBadge();
+      showToast('✓ ' + synced + ' held order(s) synced to server.', 'success');
+    }
+  }
+
   // =====================================================================
   // FORM HELPERS
   // =====================================================================
@@ -872,7 +942,7 @@
     if (this.value.length > 12) this.value = this.value.slice(0, 12);
   });
 
-  window.addEventListener('online',  () => { updateOfflineUI(); syncOfflineSales(); });
+  window.addEventListener('online',  () => { updateOfflineUI(); syncOfflineSales(); syncHeldOrders(); });
   window.addEventListener('offline', () => { updateOfflineUI(); });
 
   // =====================================================================
@@ -952,8 +1022,10 @@
   function removeCartItem(i)    { cart.splice(i, 1); renderCart(); }
 
   // =====================================================================
-  // HELD ORDERS
+  // HELD ORDERS  (offline-aware: IDB when offline, server when online)
   // =====================================================================
+  let _heldOrdersMap = {};   // key → full order object, populated on modal open
+
   async function holdOrder() {
     if (!cart.length) return alert('Cart is empty — nothing to hold!');
 
@@ -961,32 +1033,41 @@
     const customer_name   = (document.getElementById('customer_name').value || '').trim() || null;
     const customer_mobile = document.getElementById('customer_mobile')?.value || null;
     const comment         = (document.getElementById('sale_comment').value || '').trim() || null;
+    const cart_items      = cart.map(i => ({ barcode: i.barcode, accessory: i.accessory, qty: Number(i.qty), price: Number(i.price), discount: Number(i.discount || 0) }));
 
     const btn = document.getElementById('hold-btn');
     btn.disabled = true;
     btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> Holding…';
 
+    const doHoldOffline = async () => {
+      await idbHeldAdd({ cart_items, vendor_id, customer_name, customer_mobile, comment });
+      cart = []; renderCart(); resetSaleForm();
+      await refreshHeldBadge();
+      showToast('Order held offline! Will sync when internet returns.', 'warning');
+    };
+
     try {
-      const res = await fetch('/pos/hold', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-        body:    JSON.stringify({
-          cart_items:      cart.map(i => ({ barcode: i.barcode, accessory: i.accessory, qty: Number(i.qty), price: Number(i.price), discount: Number(i.discount || 0) })),
-          vendor_id, customer_name, customer_mobile, comment,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        cart = [];
-        renderCart();
-        resetSaleForm();
-        await refreshHeldBadge();
-        showToast('Order held! Resume it from Held Orders.', 'success');
+      if (!navigator.onLine) {
+        await doHoldOffline();
       } else {
-        alert('Failed to hold order: ' + (data.message || 'Unknown error'));
+        const res  = await fetch('/pos/hold', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+          body:    JSON.stringify({ cart_items, vendor_id, customer_name, customer_mobile, comment }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          cart = []; renderCart(); resetSaleForm();
+          await refreshHeldBadge();
+          showToast('Order held! Resume it from Held Orders.', 'success');
+        } else {
+          alert('Failed to hold order: ' + (data.message || 'Unknown error'));
+        }
       }
     } catch (e) {
-      alert('Error: ' + e.message);
+      // Connection dropped mid-request — fall back to IDB
+      try { await doHoldOffline(); showToast('Connection lost! Order held offline.', 'warning'); }
+      catch(e2) { alert('Failed to hold order: ' + e2.message); }
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa fa-pause mr-1"></i> Hold Order';
@@ -994,43 +1075,75 @@
   }
 
   async function refreshHeldBadge() {
-    try {
-      const res   = await fetch('/pos/held', { credentials: 'same-origin' });
-      const data  = await res.json();
-      const badge = document.getElementById('held-badge');
-      const count = (data.orders || []).length;
-      badge.textContent  = count;
-      badge.style.display = count > 0 ? '' : 'none';
-    } catch (e) {}
+    let count = 0;
+    try { count += (await idbHeldGetAll()).length; } catch(e) {}
+    if (navigator.onLine) {
+      try {
+        const res  = await fetch('/pos/held', { credentials: 'same-origin' });
+        const data = await res.json();
+        count += (data.orders || []).length;
+      } catch(e) {}
+    }
+    const badge = document.getElementById('held-badge');
+    badge.textContent   = count;
+    badge.style.display = count > 0 ? '' : 'none';
   }
 
   async function openHeldOrdersModal() {
     $('#held-orders-modal').modal('show');
     const body = document.getElementById('held-orders-body');
     body.innerHTML = '<div class="text-center py-4 text-muted"><i class="fa fa-spinner fa-spin mr-1"></i> Loading…</div>';
+
     try {
-      const res  = await fetch('/pos/held', { credentials: 'same-origin' });
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch(e) {
-        body.innerHTML = '<div class="text-center py-4 text-danger"><strong>Server error:</strong><pre class="text-left mt-2 small" style="max-height:200px;overflow:auto;">' + text.substring(0, 1000) + '</pre></div>';
-        return;
+      let orders = [];
+
+      // Always load IDB (offline) orders first
+      const localOrders = await idbHeldGetAll();
+      localOrders.forEach(o => {
+        const items = o.cart_items || [];
+        const total = items.reduce((s, i) => s + Math.max(0, (Number(i.price) - Number(i.discount || 0))) * Number(i.qty), 0);
+        const heldAt = o.held_at ? new Date(o.held_at).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+        orders.push({
+          _key: 'local:' + o.id, _src: 'local', is_offline: true,
+          held_at: heldAt, item_count: items.length, total: total.toFixed(2),
+          customer: o.customer_name || 'Walk-in', comment: o.comment,
+          cart_items: o.cart_items, vendor_id: o.vendor_id,
+          customer_name: o.customer_name, customer_mobile: o.customer_mobile,
+        });
+      });
+
+      // Also load server orders when online
+      if (navigator.onLine) {
+        const res  = await fetch('/pos/held', { credentials: 'same-origin' });
+        const text = await res.text();
+        try {
+          const data = JSON.parse(text);
+          if (res.ok && data.success) {
+            (data.orders || []).forEach(o => {
+              orders.push({ ...o, _key: 'server:' + o.id, _src: 'server', is_offline: false });
+            });
+          } else if (!orders.length) {
+            body.innerHTML = '<div class="text-center py-4 text-danger">Error ' + res.status + ': ' + (JSON.parse(text).message || 'Unknown') + '</div>';
+            return;
+          }
+        } catch(e) {
+          if (!orders.length) {
+            body.innerHTML = '<div class="text-center py-4 text-danger"><strong>Server error:</strong><pre class="text-left mt-2 small" style="max-height:200px;overflow:auto;">' + text.substring(0, 1000) + '</pre></div>';
+            return;
+          }
+        }
       }
-      if (!res.ok) {
-        body.innerHTML = '<div class="text-center py-4 text-danger">Error ' + res.status + ': ' + (data.message || 'Unknown error') + '</div>';
-        return;
-      }
-      renderHeldOrders(data.orders || []);
+
+      renderHeldOrders(orders);
     } catch (e) {
-      body.innerHTML = '<div class="text-center py-4 text-danger">Network error: ' + e.message + '</div>';
+      body.innerHTML = '<div class="text-center py-4 text-danger">Error: ' + e.message + '</div>';
     }
   }
 
   function renderHeldOrders(orders) {
     const body = document.getElementById('held-orders-body');
-    body.dataset.orders = JSON.stringify(orders);
+    _heldOrdersMap = {};
+    orders.forEach(o => { _heldOrdersMap[o._key] = o; });
 
     if (!orders.length) {
       body.innerHTML = '<div class="text-center py-5 text-muted"><i class="fa fa-inbox fa-2x mb-2 d-block"></i> No held orders.</div>';
@@ -1040,15 +1153,17 @@
     let html = '<div class="table-responsive"><table class="table table-hover mb-0" style="font-size:.95rem;">';
     html += '<thead style="background:#f1f3f5;"><tr><th>Time Held</th><th>Customer</th><th class="text-center">Items</th><th>Total</th><th>Comment</th><th></th></tr></thead><tbody>';
     orders.forEach(o => {
+      const offlinePill = o.is_offline
+        ? ' <span class="badge badge-warning" style="font-size:.68rem;vertical-align:middle;">Offline</span>' : '';
       html += `<tr>
-        <td class="small align-middle">${o.held_at}</td>
+        <td class="small align-middle">${o.held_at}${offlinePill}</td>
         <td class="align-middle font-weight-bold">${o.customer}</td>
         <td class="text-center align-middle">${o.item_count}</td>
         <td class="align-middle font-weight-bold text-success">Rs. ${o.total}</td>
         <td class="small text-muted align-middle">${o.comment || '—'}</td>
         <td class="align-middle text-nowrap">
-          <button class="btn btn-sm btn-success font-weight-bold mr-1" onclick="resumeOrder(${o.id})"><i class="fa fa-play mr-1"></i>Resume</button>
-          <button class="btn btn-sm btn-outline-danger" onclick="deleteHeldOrder(${o.id}, false)"><i class="fa fa-trash"></i></button>
+          <button class="btn btn-sm btn-success font-weight-bold mr-1" onclick="resumeOrder('${o._key}')"><i class="fa fa-play mr-1"></i>Resume</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteHeldOrder('${o._key}', false)"><i class="fa fa-trash"></i></button>
         </td>
       </tr>`;
     });
@@ -1056,49 +1171,44 @@
     body.innerHTML = html;
   }
 
-  async function resumeOrder(id) {
-    const body   = document.getElementById('held-orders-body');
-    const orders = JSON.parse(body.dataset.orders || '[]');
-    const order  = orders.find(o => o.id === id);
+  async function resumeOrder(key) {
+    const order = _heldOrdersMap[key];
     if (!order) return;
 
     if (cart.length && !confirm('This will replace your current cart with the held order. Continue?')) return;
 
     cart = order.cart_items.map(i => ({
-      barcode:   i.barcode,
-      accessory: i.accessory,
-      qty:       Number(i.qty),
-      price:     Number(i.price),
-      discount:  Number(i.discount || 0),
+      barcode: i.barcode, accessory: i.accessory,
+      qty: Number(i.qty), price: Number(i.price), discount: Number(i.discount || 0),
     }));
     renderCart();
 
-    // Restore form fields
     if (order.vendor_id) {
-      try { $('#vendor_id').val(order.vendor_id).trigger('change'); } catch (e) {}
+      try { $('#vendor_id').val(order.vendor_id).trigger('change'); } catch(e) {}
     } else {
-      try { $('#vendor_id').val(null).trigger('change'); } catch (e) {}
+      try { $('#vendor_id').val(null).trigger('change'); } catch(e) {}
       if (order.customer_name)   document.getElementById('customer_name').value   = order.customer_name;
       if (order.customer_mobile) document.getElementById('customer_mobile').value = order.customer_mobile;
     }
     if (order.comment) document.getElementById('sale_comment').value = order.comment;
 
-    // Remove from DB silently
-    await deleteHeldOrder(id, true);
-
+    await deleteHeldOrder(key, true);
     $('#held-orders-modal').modal('hide');
     showToast('Order resumed!', 'success');
   }
 
-  async function deleteHeldOrder(id, silent) {
+  async function deleteHeldOrder(key, silent) {
     if (!silent && !confirm('Delete this held order?')) return;
-    try {
-      await fetch('/pos/hold/' + id, {
-        method:  'DELETE',
-        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-        credentials: 'same-origin',
-      });
-    } catch (e) {}
+    const [src, rawId] = key.split(':');
+    if (src === 'local') {
+      try { await idbHeldDelete(Number(rawId)); } catch(e) {}
+    } else {
+      try {
+        await fetch('/pos/hold/' + rawId, {
+          method: 'DELETE', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }, credentials: 'same-origin',
+        });
+      } catch(e) {}
+    }
     await refreshHeldBadge();
     if (!silent) await openHeldOrdersModal();
   }
