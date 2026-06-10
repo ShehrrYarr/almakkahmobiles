@@ -702,88 +702,123 @@
   // =====================================================================
   // SYNC
   // =====================================================================
+  let _syncSalesInProgress  = false;   // prevents concurrent sale syncs
+  let _syncHeldInProgress   = false;   // prevents concurrent held-order syncs
+
   async function syncOfflineSales() {
-    const pending = await idbGetByStatus('pending');
-    if (!pending.length) return;
+    if (_syncSalesInProgress) return;          // already running — skip
+    _syncSalesInProgress = true;
 
-    document.getElementById('sync-banner').style.display  = 'block';
-    document.getElementById('sync-now-btn').style.display = 'none';
-
-    // Fetch a fresh CSRF token before syncing
-    let csrf = '{{ csrf_token() }}';
     try {
-      const tr = await fetch('/api/pos/token', { credentials: 'same-origin' });
-      const td = await tr.json();
-      if (td.csrf) csrf = td.csrf;
-    } catch(e) { /* use cached token */ }
+      const pending = await idbGetByStatus('pending');
+      if (!pending.length) return;
 
-    let synced = 0, failed = 0;
-    for (const sale of pending) {
+      document.getElementById('sync-banner').style.display  = 'block';
+      document.getElementById('sync-now-btn').style.display = 'none';
+
+      // Fetch a fresh CSRF token before syncing
+      let csrf = '{{ csrf_token() }}';
       try {
-        const res  = await fetch('/pos/checkout', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-          body:    JSON.stringify(sale.payload)
-        });
-        const data = await res.json();
-        if (data.success) {
-          await idbSetStatus(sale.id, 'synced', null);
-          synced++;
-        } else {
-          await idbSetStatus(sale.id, 'failed', data.message || 'Server error');
-          failed++;
+        const tr = await fetch('/api/pos/token', { credentials: 'same-origin' });
+        const td = await tr.json();
+        if (td.csrf) csrf = td.csrf;
+      } catch(e) { /* use cached token */ }
+
+      let synced = 0, failed = 0;
+      for (const sale of pending) {
+        // Mark as 'syncing' BEFORE the request so a second concurrent call
+        // (or a retry after a page-reload) will not re-send this sale.
+        await idbSetStatus(sale.id, 'syncing', null);
+        try {
+          const res  = await fetch('/pos/checkout', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+            body:    JSON.stringify(sale.payload)
+          });
+          const data = await res.json();
+          if (data.success) {
+            await idbSetStatus(sale.id, 'synced', null);
+            synced++;
+          } else {
+            // Server rejected it — mark failed so it shows in the conflict panel
+            await idbSetStatus(sale.id, 'failed', data.message || 'Server error');
+            failed++;
+          }
+        } catch(e) {
+          // Network dropped mid-request — revert to 'pending' so it retries next time
+          await idbSetStatus(sale.id, 'pending', null);
+          break;
         }
-      } catch(e) {
-        break; // Network dropped again — stop and retry later
       }
-    }
 
-    document.getElementById('sync-banner').style.display = 'none';
+      document.getElementById('sync-banner').style.display = 'none';
 
-    if (synced > 0) {
-      showToast('✓ ' + synced + ' sale(s) synced successfully!' + (failed ? ' ' + failed + ' failed — see conflicts above.' : ''), 'success');
-      setTimeout(() => window.location.reload(), 1800);
-    } else if (failed > 0) {
-      showToast(failed + ' sale(s) failed to sync. See conflicts panel.', 'danger');
-      updateOfflineUI();
-    } else {
-      updateOfflineUI();
+      if (synced > 0) {
+        showToast('✓ ' + synced + ' sale(s) synced successfully!' + (failed ? ' ' + failed + ' failed — see conflicts above.' : ''), 'success');
+        setTimeout(() => window.location.reload(), 1800);
+      } else if (failed > 0) {
+        showToast(failed + ' sale(s) failed to sync. See conflicts panel.', 'danger');
+        updateOfflineUI();
+      } else {
+        updateOfflineUI();
+      }
+    } finally {
+      _syncSalesInProgress = false;
     }
   }
 
   async function syncHeldOrders() {
-    const local = await idbHeldGetAll();
-    if (!local.length) return;
+    if (_syncHeldInProgress) return;           // already running — skip
+    _syncHeldInProgress = true;
 
-    let csrf = '{{ csrf_token() }}';
     try {
-      const tr = await fetch('/api/pos/token', { credentials: 'same-origin' });
-      const td = await tr.json();
-      if (td.csrf) csrf = td.csrf;
-    } catch(e) {}
+      const local = await idbHeldGetAll();
+      if (!local.length) return;
 
-    let synced = 0;
-    for (const order of local) {
+      let csrf = '{{ csrf_token() }}';
       try {
-        const res = await fetch('/pos/hold', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-          body:    JSON.stringify({
-            cart_items:      order.cart_items,
-            vendor_id:       order.vendor_id       || null,
-            customer_name:   order.customer_name   || null,
-            customer_mobile: order.customer_mobile || null,
-            comment:         order.comment         || null,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) { await idbHeldDelete(order.id); synced++; }
-      } catch(e) { break; }  // network dropped again — stop
-    }
+        const tr = await fetch('/api/pos/token', { credentials: 'same-origin' });
+        const td = await tr.json();
+        if (td.csrf) csrf = td.csrf;
+      } catch(e) {}
 
-    if (synced > 0) {
-      await refreshHeldBadge();
-      showToast('✓ ' + synced + ' held order(s) synced to server.', 'success');
+      let synced = 0;
+      for (const order of local) {
+        // Delete from IDB BEFORE the request — if the server creates it but the
+        // response is lost, re-sending would duplicate it. Better to lose the
+        // hold record than create a duplicate sale later.
+        await idbHeldDelete(order.id);
+        try {
+          const res = await fetch('/pos/hold', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+            body:    JSON.stringify({
+              cart_items:      order.cart_items,
+              vendor_id:       order.vendor_id       || null,
+              customer_name:   order.customer_name   || null,
+              customer_mobile: order.customer_mobile || null,
+              comment:         order.comment         || null,
+            }),
+          });
+          const data = await res.json();
+          if (data.success) { synced++; }
+          else {
+            // Server rejected — put it back in IDB so the user doesn't lose it
+            await idbHeldAdd({ ...order });
+          }
+        } catch(e) {
+          // Network dropped — put it back and stop
+          await idbHeldAdd({ ...order });
+          break;
+        }
+      }
+
+      if (synced > 0) {
+        await refreshHeldBadge();
+        showToast('✓ ' + synced + ' held order(s) synced to server.', 'success');
+      }
+    } finally {
+      _syncHeldInProgress = false;
     }
   }
 
@@ -916,7 +951,12 @@
     $('#vendor_id').trigger('change');
 
     // IndexedDB init + offline UI
-    idbOpen().then(() => updateOfflineUI());
+    // Reset any 'syncing' records left over from a crash/reload mid-sync
+    idbOpen().then(async () => {
+      const stuck = await idbGetByStatus('syncing');
+      for (const s of stuck) await idbSetStatus(s.id, 'pending', null);
+      updateOfflineUI();
+    });
 
     // Held orders badge
     refreshHeldBadge();
