@@ -194,6 +194,7 @@ Route::get('/reports/sales', [\App\Http\Controllers\SaleController::class, 'sale
 Route::get('/accessoryreport', [SaleController::class, 'accessoryReport'])->name('saccessoryreport')->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts']);
 // routes/web.php
 Route::get('/api/vendor-balance/{id}', [VendorController::class, 'getVBalance']);
+Route::post('/api/pos/credit', [AccountsController::class, 'creditAmount'])->name('pos.credit')->middleware(['auth', 'login.time.restrict']);
 
 
 //Profit only main account py show ho

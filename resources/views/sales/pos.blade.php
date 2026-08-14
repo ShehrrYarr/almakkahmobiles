@@ -279,6 +279,9 @@
                                 <div class="d-flex gap-2" style="gap:6px;">
                                     <input type="number" min="0" name="pay_amount" id="pay_amount" class="form-control form-control-sm" placeholder="Pay amount">
                                     <input type="text" id="vendor_balance" class="form-control form-control-sm font-weight-bold text-primary" placeholder="Balance" readonly>
+                                    <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-toggle="modal" data-target="#record-credit-modal" title="Record a payment/credit for this vendor without checking out a sale">
+                                        <i class="fa fa-money mr-1"></i> Record Credit
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -608,6 +611,37 @@
     </button>
 </div>
 
+{{-- Record Credit Modal --}}
+<div class="modal fade" id="record-credit-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title font-weight-bold"><i class="fa fa-money mr-1"></i> Record Credit for <span id="record-credit-vendor-name"></span></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Amount</label>
+                    <input type="number" min="1" step="0.01" class="form-control" id="record-credit-amount" placeholder="Amount received/credited">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description (optional)</label>
+                    <input type="text" class="form-control" id="record-credit-description" placeholder="e.g. Cash payment, easypaisa...">
+                </div>
+                <div id="record-credit-status" class="small text-muted"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="record-credit-save-btn" onclick="recordVendorCredit()">
+                    <i class="fa fa-check-square-o mr-1"></i> Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Held Orders Modal --}}
 <div class="modal fade" id="held-orders-modal" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-lg" role="document">
@@ -636,7 +670,7 @@
   // OFFLINE / IndexedDB helpers
   // =====================================================================
   const _IDB_NAME = 'amm_pos_offline';
-  const _IDB_VER  = 2;   // v2: added held_orders store
+  const _IDB_VER  = 3;   // v2: added held_orders store; v3: added credits store
   let _idb = null;
 
   function idbOpen() {
@@ -651,6 +685,10 @@
         }
         if (!db.objectStoreNames.contains('held_orders')) {
           db.createObjectStore('held_orders', { keyPath: 'id', autoIncrement: true });
+        }
+        if (!db.objectStoreNames.contains('credits')) {
+          const c = db.createObjectStore('credits', { keyPath: 'id', autoIncrement: true });
+          c.createIndex('status', 'status', { unique: false });
         }
       };
       req.onsuccess = e => { _idb = e.target.result; res(_idb); };
@@ -686,6 +724,41 @@
                   .delete(id);
       r.onsuccess = () => res();
       r.onerror   = () => rej(r.error);
+    }));
+  }
+
+  // ---- Manual-credit IDB helpers (mirrors the 'sales' queue) ----
+  function idbCreditAdd(payload) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const r = db.transaction('credits', 'readwrite').objectStore('credits').add({
+        payload, queued_at: new Date().toISOString(), status: 'pending', error: null
+      });
+      r.onsuccess = () => res(r.result);
+      r.onerror   = () => rej(r.error);
+    }));
+  }
+
+  function idbCreditGetByStatus(status) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const idx = db.transaction('credits', 'readonly').objectStore('credits').index('status');
+      const r = idx.getAll(status);
+      r.onsuccess = () => res(r.result);
+      r.onerror   = () => rej(r.error);
+    }));
+  }
+
+  function idbCreditSetStatus(id, status, error) {
+    return idbOpen().then(db => new Promise((res, rej) => {
+      const store = db.transaction('credits', 'readwrite').objectStore('credits');
+      const get = store.get(id);
+      get.onsuccess = () => {
+        const rec = get.result;
+        rec.status = status; rec.error = error || null;
+        const put = store.put(rec);
+        put.onsuccess = () => res();
+        put.onerror   = () => rej(put.error);
+      };
+      get.onerror = () => rej(get.error);
     }));
   }
 
@@ -918,6 +991,60 @@
     }
   }
 
+  let _syncCreditsInProgress = false;   // prevents concurrent credit syncs
+
+  async function syncOfflineCredits() {
+    if (_syncCreditsInProgress) return;
+    _syncCreditsInProgress = true;
+
+    try {
+      const pending = await idbCreditGetByStatus('pending');
+      if (!pending.length) return;
+
+      let csrf = '{{ csrf_token() }}';
+      try {
+        const tr = await fetch('/api/pos/token', { credentials: 'same-origin' });
+        const td = await tr.json();
+        if (td.csrf) csrf = td.csrf;
+      } catch(e) {}
+
+      let synced = 0, failed = 0;
+      for (const credit of pending) {
+        // Mark as 'syncing' BEFORE the request, same reasoning as syncOfflineSales:
+        // stops a second concurrent call (or a retry after reload) from re-sending it.
+        await idbCreditSetStatus(credit.id, 'syncing', null);
+        try {
+          const res  = await fetch('{{ route('pos.credit') }}', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            body:    JSON.stringify(credit.payload)
+          });
+          const data = await res.json();
+          if (data.success) {
+            await idbCreditSetStatus(credit.id, 'synced', null);
+            synced++;
+          } else {
+            await idbCreditSetStatus(credit.id, 'failed', data.message || 'Server error');
+            failed++;
+          }
+        } catch(e) {
+          // Network dropped mid-request — revert to 'pending' so it retries next time
+          await idbCreditSetStatus(credit.id, 'pending', null);
+          break;
+        }
+      }
+
+      if (synced > 0) {
+        showToast('✓ ' + synced + ' offline credit(s) synced!' + (failed ? ' ' + failed + ' failed.' : ''), 'success');
+        if (document.getElementById('vendor_id').value) $('#vendor_id').trigger('change');
+      } else if (failed > 0) {
+        showToast(failed + ' offline credit(s) failed to sync.', 'danger');
+      }
+    } finally {
+      _syncCreditsInProgress = false;
+    }
+  }
+
   // =====================================================================
   // FORM HELPERS
   // =====================================================================
@@ -1051,7 +1178,19 @@
     idbOpen().then(async () => {
       const stuck = await idbGetByStatus('syncing');
       for (const s of stuck) await idbSetStatus(s.id, 'pending', null);
+
+      const stuckCredits = await idbCreditGetByStatus('syncing');
+      for (const c of stuckCredits) await idbCreditSetStatus(c.id, 'pending', null);
+      if (navigator.onLine) syncOfflineCredits();
+
       updateOfflineUI();
+    });
+
+    // Populate the vendor name in the Record Credit modal each time it opens
+    $('#record-credit-modal').on('show.bs.modal', function () {
+      const sel = document.getElementById('vendor_id');
+      const name = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+      document.getElementById('record-credit-vendor-name').textContent = name;
     });
 
     // Held orders badge
@@ -1078,7 +1217,7 @@
     if (this.value.length > 12) this.value = this.value.slice(0, 12);
   });
 
-  window.addEventListener('online',  () => { updateOfflineUI(); syncOfflineSales(); syncHeldOrders(); });
+  window.addEventListener('online',  () => { updateOfflineUI(); syncOfflineSales(); syncHeldOrders(); syncOfflineCredits(); });
   window.addEventListener('offline', () => { updateOfflineUI(); });
 
   // =====================================================================
@@ -1228,6 +1367,74 @@
       btn.innerHTML = '<i class="fa fa-pause mr-1"></i> Hold Order';
       if (mBtn) { mBtn.disabled = false; mBtn.innerHTML = '<i class="fa fa-pause"></i>'; }
     }
+  }
+
+  async function recordVendorCredit() {
+    const vendor_id = document.getElementById('vendor_id').value;
+    if (!vendor_id) return; // button is only reachable once a vendor is selected, but guard anyway
+
+    const amountInput = document.getElementById('record-credit-amount');
+    const amount       = Number(amountInput.value);
+    const description  = (document.getElementById('record-credit-description').value || '').trim() || null;
+    const statusEl      = document.getElementById('record-credit-status');
+
+    if (!amount || amount <= 0) {
+      statusEl.className = 'small text-danger';
+      statusEl.textContent = 'Enter a valid amount.';
+      return;
+    }
+
+    const payload = { vendor_id, amount, description };
+    const btn = document.getElementById('record-credit-save-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> Saving…';
+    statusEl.className = 'small text-muted';
+    statusEl.textContent = '';
+
+    const doQueueOffline = async () => {
+      await idbCreditAdd(payload);
+      statusEl.className = 'small text-warning';
+      showToast('Credit queued offline — will sync when internet returns.', 'warning');
+      closeRecordCreditModal();
+    };
+
+    try {
+      if (!navigator.onLine) {
+        await doQueueOffline();
+      } else {
+        const res = await fetch('{{ route('pos.credit') }}', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+          body:    JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Credit recorded for vendor.', 'success');
+          $('#vendor_id').trigger('change'); // refresh the displayed balance
+          closeRecordCreditModal();
+        } else {
+          statusEl.className = 'small text-danger';
+          statusEl.textContent = data.message || 'Failed to record credit.';
+        }
+      }
+    } catch (e) {
+      // Connection dropped mid-request — fall back to IDB, same pattern as holdOrder()
+      try { await doQueueOffline(); }
+      catch (e2) {
+        statusEl.className = 'small text-danger';
+        statusEl.textContent = 'Failed to record credit: ' + e2.message;
+      }
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-check-square-o mr-1"></i> Save';
+    }
+  }
+
+  function closeRecordCreditModal() {
+    $('#record-credit-modal').modal('hide');
+    document.getElementById('record-credit-amount').value = '';
+    document.getElementById('record-credit-description').value = '';
+    document.getElementById('record-credit-status').textContent = '';
   }
 
   async function refreshHeldBadge() {

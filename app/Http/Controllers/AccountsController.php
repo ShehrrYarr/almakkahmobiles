@@ -84,6 +84,10 @@ class AccountsController extends Controller
         ]);
     }
 
+    if ($request->expectsJson()) {
+        return response()->json(['success' => true]);
+    }
+
     return redirect()->back()->with('success', 'Credit amount recorded successfully.');
 }
 
