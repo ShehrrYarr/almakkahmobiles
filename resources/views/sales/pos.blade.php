@@ -127,6 +127,81 @@
 
     @media (max-width: 991px) {
         .pos-sticky { position: static !important; }
+
+        /* ── Room for the fixed bottom action bar ── */
+        .content-body { padding-bottom: 86px; }
+
+        /* ── Hide desktop checkout/hold row; bottom bar replaces it ── */
+        #desktop-actions { display: none !important; }
+
+        /* ── Fixed bottom action bar ── */
+        #mobile-action-bar {
+            display: flex !important;
+            position: fixed;
+            left: 0; right: 0; bottom: 0;
+            z-index: 9995;
+            background: #fff;
+            border-top: 1px solid #d8dadd;
+            box-shadow: 0 -3px 12px rgba(0,0,0,.12);
+            padding: 8px 10px;
+            gap: 8px;
+            align-items: center;
+        }
+        #mobile-action-bar .mab-total {
+            flex: 0 0 auto;
+            line-height: 1.15;
+            padding-right: 4px;
+        }
+        #mobile-action-bar .mab-total .mab-label { font-size: .68rem; color: #6c757d; }
+        #mobile-action-bar .mab-total .mab-amount { font-size: 1.05rem; font-weight: 800; color: #15803d; white-space: nowrap; }
+        #mobile-action-bar #mobile-hold-btn {
+            flex: 0 0 auto;
+            background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%) !important;
+            border: none; color: #fff; font-weight: 700;
+            padding: 10px 14px; border-radius: 8px;
+        }
+        #mobile-action-bar #mobile-checkout-btn {
+            flex: 1 1 auto;
+            background: linear-gradient(135deg, #1a7a3a 0%, #2ecc6a 100%) !important;
+            border: none; color: #fff; font-weight: 700;
+            padding: 10px 8px; border-radius: 8px;
+            font-size: .95rem;
+        }
+
+        /* ── Tighter cards & inputs ── */
+        .card .card-body { padding: 10px !important; }
+        .cart-input { width: 56px; padding: 6px 4px; font-size: 1rem; }
+        #sale-cart-table { font-size: .9rem !important; }
+        #sale-cart-table td, #sale-cart-table th { padding: 4px 3px !important; }
+
+        /* ── Prevent iOS zoom-on-focus (inputs must be ≥16px) ── */
+        input.form-control, select.form-control, textarea.form-control,
+        .cart-input, #barcode_search { font-size: 16px !important; }
+
+        /* ── Bigger tap targets for scan/add buttons ── */
+        .btn-warning, .btn-secondary { padding: 10px 16px !important; }
+
+        /* ── Daily Sales hidden by default on mobile ── */
+        #daily-sales-body { display: none; }
+        #daily-sales-body.mobile-open { display: block; }
+
+        /* ── Held orders modal: full width ── */
+        #held-orders-modal .modal-dialog { margin: 8px; max-width: none; }
+        #held-orders-modal .table { font-size: .85rem !important; }
+
+        /* ── Page title smaller ── */
+        .content-body h3 { font-size: 1.25rem; }
+
+        /* ── Offline/sync banners sit above bottom bar, not behind navbar ── */
+        #offline-banner, #sync-banner { font-size: .8em; padding: 6px 10px; }
+    }
+
+    /* Bottom bar hidden on desktop */
+    #mobile-action-bar { display: none; }
+    /* Daily Sales toggle hidden on desktop */
+    #daily-sales-toggle { display: none; }
+    @media (max-width: 991px) {
+        #daily-sales-toggle { display: inline-block; }
     }
 </style>
 
@@ -312,7 +387,7 @@
                         </button>
 
                         {{-- Checkout / Hold --}}
-                        <div class="d-flex justify-content-end mb-2" style="gap:8px;">
+                        <div class="d-flex justify-content-end mb-2" id="desktop-actions" style="gap:8px;">
                             <button class="btn font-weight-bold py-2" id="hold-btn" onclick="holdOrder()" style="font-size:1.05em;">
                                 <i class="fa fa-pause mr-1"></i> Hold Order
                             </button>
@@ -364,7 +439,12 @@
             {{-- ===== Daily Sales ===== --}}
             <div class="card shadow-sm mt-3">
                 <div class="card-header bg-white d-flex align-items-start justify-content-between flex-wrap" style="gap:12px;">
-                    <h5 class="mb-0 font-weight-bold"><i class="fa fa-list-alt text-secondary mr-1"></i> Daily Sales</h5>
+                    <div>
+                        <h5 class="mb-0 font-weight-bold"><i class="fa fa-list-alt text-secondary mr-1"></i> Daily Sales</h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary font-weight-bold mt-1" id="daily-sales-toggle" onclick="toggleDailySales()">
+                            <i class="fa fa-chevron-down mr-1" id="daily-sales-chevron"></i> Show Daily Sales
+                        </button>
+                    </div>
                     <div class="text-right">
                         <div class="mb-1">
                             <span class="text-muted small">Selling:</span>
@@ -384,6 +464,7 @@
                     </div>
                 </div>
 
+                <div id="daily-sales-body">
                 <div class="table-responsive">
                     <table id="loginTable" class="table table-striped table-bordered zero-configuration mb-0">
                         <thead>
@@ -506,10 +587,25 @@
                     </div>
                 </div>
                 @endif
+                </div>{{-- /daily-sales-body --}}
             </div>
 
         </div>
     </div>
+</div>
+
+{{-- Mobile fixed bottom action bar (hidden on desktop via CSS) --}}
+<div id="mobile-action-bar">
+    <div class="mab-total">
+        <div class="mab-label">Total (<span id="mobile-cart-count">0</span> items)</div>
+        <div class="mab-amount">Rs. <span id="cart-total-mobile">0.00</span></div>
+    </div>
+    <button type="button" id="mobile-hold-btn" onclick="holdOrder()">
+        <i class="fa fa-pause"></i>
+    </button>
+    <button type="button" id="mobile-checkout-btn" onclick="checkoutSale()">
+        <i class="fa fa-check-circle mr-1"></i> Checkout
+    </button>
 </div>
 
 {{-- Held Orders Modal --}}
@@ -1026,6 +1122,10 @@
       document.getElementById('cart-badge').textContent = '0';
       const footer = document.getElementById('cart-total-footer');
       if (footer) footer.textContent = '0.00';
+      const mTotal = document.getElementById('cart-total-mobile');
+      if (mTotal) mTotal.textContent = '0.00';
+      const mCount = document.getElementById('mobile-cart-count');
+      if (mCount) mCount.textContent = '0';
       return;
     }
     cart.forEach((item, i) => {
@@ -1054,6 +1154,19 @@
     document.getElementById('cart-badge').textContent  = cart.length;
     const footer = document.getElementById('cart-total-footer');
     if (footer) footer.textContent = grandTotal.toFixed(2);
+    const mTotal = document.getElementById('cart-total-mobile');
+    if (mTotal) mTotal.textContent = grandTotal.toFixed(2);
+    const mCount = document.getElementById('mobile-cart-count');
+    if (mCount) mCount.textContent = cart.length;
+  }
+
+  function toggleDailySales() {
+    const body = document.getElementById('daily-sales-body');
+    const btn  = document.getElementById('daily-sales-toggle');
+    const open = body.classList.toggle('mobile-open');
+    btn.innerHTML = open
+      ? '<i class="fa fa-chevron-up mr-1"></i> Hide Daily Sales'
+      : '<i class="fa fa-chevron-down mr-1"></i> Show Daily Sales';
   }
 
   function updateQuantity(i, v) { const q = Number(v); if (!isNaN(q) && q > 0) { cart[i].qty = q; renderCart(); } }
@@ -1075,8 +1188,10 @@
     const comment         = (document.getElementById('sale_comment').value || '').trim() || null;
     const cart_items      = cart.map(i => ({ barcode: i.barcode, accessory: i.accessory, qty: Number(i.qty), price: Number(i.price), discount: Number(i.discount || 0) }));
 
-    const btn = document.getElementById('hold-btn');
+    const btn  = document.getElementById('hold-btn');
+    const mBtn = document.getElementById('mobile-hold-btn');
     btn.disabled = true;
+    if (mBtn) { mBtn.disabled = true; mBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>'; }
     btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> Holding…';
 
     const doHoldOffline = async () => {
@@ -1111,6 +1226,7 @@
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa fa-pause mr-1"></i> Hold Order';
+      if (mBtn) { mBtn.disabled = false; mBtn.innerHTML = '<i class="fa fa-pause"></i>'; }
     }
   }
 
