@@ -123,6 +123,42 @@ public function debitAmount(Request $request)
 }
 
 
+    public function manualCredits(Request $request)
+    {
+        $request->validate([
+            'vendor_id' => 'nullable|exists:vendors,id',
+            'date_from' => 'nullable|date',
+            'date_to'   => 'nullable|date|after_or_equal:date_from',
+        ]);
+
+        // Default to today only — this table can hold tens of thousands of rows,
+        // so an unfiltered "all time" view by default isn't practical.
+        $hasDateFilter = $request->filled('date_from') || $request->filled('date_to');
+        $dateFrom = $request->filled('date_from') ? $request->date_from : ($hasDateFilter ? null : today()->toDateString());
+        $dateTo   = $request->filled('date_to')   ? $request->date_to   : ($hasDateFilter ? null : today()->toDateString());
+
+        $entries = \App\Models\Accounts::with(['vendor', 'creator'])
+            ->where('Credit', '>', 0)
+            ->where('description', 'not like', 'Return for Sale #%')
+            ->where('description', 'not like', 'Batch Purchase:%')
+            ->where('description', 'not like', 'Payment for Invoice #%')
+            ->when($request->filled('vendor_id'), function ($q) use ($request) {
+                $q->where('vendor_id', $request->vendor_id);
+            })
+            ->when($dateFrom, function ($q) use ($dateFrom) {
+                $q->whereDate('created_at', '>=', $dateFrom);
+            })
+            ->when($dateTo, function ($q) use ($dateTo) {
+                $q->whereDate('created_at', '<=', $dateTo);
+            })
+            ->orderByDesc('created_at')
+            ->get();
+
+        $vendors = \App\Models\vendor::orderBy('name')->get();
+
+        return view('manualCreditEntries', compact('entries', 'vendors', 'dateFrom', 'dateTo'));
+    }
+
     public function getaccount($id)
     {
         $filterId = Accounts::find($id);

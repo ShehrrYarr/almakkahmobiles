@@ -73,6 +73,7 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accoun
     Route::get('/vendor-balance/{id}', [VendorController::class, 'getBalance'])->name('vendor.balance');
     Route::get('/vendor-balance', [VendorController::class, 'getBalance'])->name('getVendorBalance');
     Route::get('/receivablevendors', [VendorController::class, 'listReceivables'])->name('receivablevendors');
+    Route::get('/manual-credits', [AccountsController::class, 'manualCredits'])->name('manualCredits');
 });
 Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])->group(function () {
     Route::post('/deletevendor', [VendorController::class, 'destroyVendor'])->name('destroyVendor');

@@ -153,6 +153,10 @@
                                                                 class="menu-item" href="/receivablevendors"
                                                                 data-i18n="1 columns">Receivable Vendors</a>
                                                 </li>
+                                                <li class="@if(\Request::is('manual-credits')) active @endif"><a
+                                                                class="menu-item" href="/manual-credits"
+                                                                data-i18n="1 columns">Manual Credit Entries</a>
+                                                </li>
 
                                         </ul>
                                 </li>
