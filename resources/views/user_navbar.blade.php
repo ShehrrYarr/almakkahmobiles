@@ -208,6 +208,10 @@
                                                                 class="menu-item" href="/batches"
                                                                 data-i18n="1 columns">Manage Batch</a>
                                                 </li>
+                                                <li class="@if (\Request::is('notebook')) active @endif"><a
+                                                                class="menu-item" href="/notebook"
+                                                                data-i18n="1 columns">Notebook</a>
+                                                </li>
 
 
                                         </ul>

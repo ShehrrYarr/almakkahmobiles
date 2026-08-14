@@ -133,6 +133,18 @@
                             <input type="text" class="form-control" name="description" id="description">
                         </div>
                         <div class="mb-1">
+                            <label for="editPicture" class="form-label">Accessory Image</label>
+                            <input type="file" name="picture" id="editPicture" class="form-control" accept="image/*">
+                            <small class="text-muted">Leave blank to keep the current image.</small>
+
+                            {{-- Current / preview image --}}
+                            <div id="editImagePreviewContainer" class="mt-2" style="display:none;">
+                                <p class="mb-1" id="editImagePreviewLabel">Current image:</p>
+                                <img id="editImagePreview" src="" alt="Accessory Preview"
+                                    style="max-width: 120px; max-height: 120px; border: 1px solid #ddd; border-radius: 6px;">
+                            </div>
+                        </div>
+                        <div class="mb-1">
                             <label for="password" class="form-label">Edit Password</label>
                             <input type="password" class="form-control" name="password" required>
                         </div>
@@ -287,6 +299,23 @@
     }
     });
 
+    document.getElementById('editPicture').addEventListener('change', function (event) {
+    const file = event.target.files[0];
+    const previewContainer = document.getElementById('editImagePreviewContainer');
+    const preview = document.getElementById('editImagePreview');
+    const label = document.getElementById('editImagePreviewLabel');
+
+    if (file) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+    preview.src = e.target.result;
+    label.textContent = 'New image (not saved yet):';
+    previewContainer.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+    }
+    });
+
 
     $(document).ready(function () {
         $('#accessoryTable').DataTable({
@@ -304,16 +333,28 @@ function edit(value) {
         url: '/accessoryedit/' + id,
         success: function (data) {
         $("#editAccessory").trigger("reset");
-        
+
         $('#id').val(data.result.id);
         $('#name').val(data.result.name);
         $('#company_id').val(data.result.company_id);
         $('#group_id').val(data.result.group_id);
         $('#description').val(data.result.description);
         $('#min_qty').val(data.result.min_qty);
-        
-       
-        
+
+        var editPreviewContainer = document.getElementById('editImagePreviewContainer');
+        var editPreview = document.getElementById('editImagePreview');
+        var editPreviewLabel = document.getElementById('editImagePreviewLabel');
+        if (data.result.picture) {
+            editPreview.src = '/storage/' + data.result.picture;
+            editPreviewLabel.textContent = 'Current image:';
+            editPreviewContainer.style.display = 'block';
+        } else {
+            editPreview.src = '';
+            editPreviewContainer.style.display = 'none';
+        }
+
+
+
         },
         error: function (error) {
         console.log('Error:', error);

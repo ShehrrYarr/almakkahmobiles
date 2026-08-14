@@ -83,7 +83,15 @@ public function edit($id)
         'min_qty' => 'nullable|string',
         'group_id' => 'required|exists:groups,id',
         'company_id' => 'required|exists:companies,id',
+        'picture' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
     ]);
+
+    if ($request->hasFile('picture')) {
+        if ($accessory->picture) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($accessory->picture);
+        }
+        $validated['picture'] = $request->file('picture')->store('accessories', 'public');
+    }
 
     $accessory->update($validated);
 

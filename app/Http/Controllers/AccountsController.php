@@ -64,14 +64,25 @@ class AccountsController extends Controller
     ]);
 
     $userId = auth()->id();
+    $description = $request->description ?? 'Manual credit entry';
 
-    \App\Models\Accounts::create([
-        'vendor_id'   => $request->vendor_id,
-        'Credit'      => $request->amount,
-        'Debit'       => 0,
-        'description' => $request->description ?? 'Manual credit entry',
-        'created_by'  => $userId,
-    ]);
+    // Guard against duplicate inserts from a double-submitted form (e.g. double-click)
+    $duplicate = \App\Models\Accounts::where('vendor_id', $request->vendor_id)
+        ->where('Credit', $request->amount)
+        ->where('description', $description)
+        ->where('created_by', $userId)
+        ->where('created_at', '>=', now()->subSeconds(10))
+        ->exists();
+
+    if (!$duplicate) {
+        \App\Models\Accounts::create([
+            'vendor_id'   => $request->vendor_id,
+            'Credit'      => $request->amount,
+            'Debit'       => 0,
+            'description' => $description,
+            'created_by'  => $userId,
+        ]);
+    }
 
     return redirect()->back()->with('success', 'Credit amount recorded successfully.');
 }
@@ -88,14 +99,25 @@ public function debitAmount(Request $request)
     ]);
 
     $userId = auth()->id();
+    $description = $request->description ?? 'Manual debit entry';
 
-    \App\Models\Accounts::create([
-        'vendor_id'   => $request->vendor_id,
-        'Credit'      => 0,
-        'Debit'       => $request->amount,
-        'description' => $request->description ?? 'Manual debit entry',
-        'created_by'  => $userId,
-    ]);
+    // Guard against duplicate inserts from a double-submitted form (e.g. double-click)
+    $duplicate = \App\Models\Accounts::where('vendor_id', $request->vendor_id)
+        ->where('Debit', $request->amount)
+        ->where('description', $description)
+        ->where('created_by', $userId)
+        ->where('created_at', '>=', now()->subSeconds(10))
+        ->exists();
+
+    if (!$duplicate) {
+        \App\Models\Accounts::create([
+            'vendor_id'   => $request->vendor_id,
+            'Credit'      => 0,
+            'Debit'       => $request->amount,
+            'description' => $description,
+            'created_by'  => $userId,
+        ]);
+    }
 
     return redirect()->back()->with('success', 'Debit amount recorded successfully.');
 }

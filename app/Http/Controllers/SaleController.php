@@ -305,6 +305,7 @@ public function checkout(Request $request)
             $grossBefore    = 0.0; // total before discounts
             $discountTotal  = 0.0; // total discount (discount*qty)
             $netTotal       = 0.0; // total after discounts
+            $itemSummaries  = []; // for vendor ledger description
 
             foreach ($data['items'] as $item) {
                 $batch = \App\Models\AccessoryBatch::where('barcode', $item['barcode'])
@@ -331,6 +332,9 @@ public function checkout(Request $request)
                 $discountTotal += ($unitDisc * $qty);
                 $netTotal      += $lineNet;
 
+                $itemName = $batch->accessory->name ?? ($item['accessory'] ?? 'Item');
+                $itemSummaries[] = "{$itemName} x{$qty} @ Rs." . number_format($netUnit, 0);
+
                 \App\Models\SaleItem::create([
                     'sale_id'            => $sale->id,
                     'accessory_batch_id' => $batch->id,
@@ -355,11 +359,13 @@ public function checkout(Request $request)
 
             if (!empty($data['vendor_id'])) {
                 // Vendor ledger: debit full net
+                $itemsText = implode(', ', $itemSummaries);
                 \App\Models\Accounts::create([
                     'vendor_id'   => $data['vendor_id'],
+                    'sale_id'     => $sale->id,
                     'Debit'       => $sale->total_amount,
                     'Credit'      => 0,
-                    'description' => "Sale Invoice #{$sale->id}",
+                    'description' => "Sale Invoice #{$sale->id} — {$itemsText}",
                     'created_by'  => auth()->id(),
                 ]);
 

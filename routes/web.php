@@ -166,6 +166,10 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory']
     Route::post('/batches', [AccessoryBatchController::class, 'store'])->name('batches.store');
 });
 
+//Notebook Routes (shared, equal access for admin & salesman)
+Route::get('/notebook', [\App\Http\Controllers\NotebookController::class, 'index'])->name('notebook.index')->middleware(['auth', 'login.time.restrict']);
+Route::post('/notebook', [\App\Http\Controllers\NotebookController::class, 'save'])->name('notebook.save')->middleware(['auth', 'login.time.restrict']);
+
 
 //Sales Routes
 Route::get('/sales', [App\Http\Controllers\SaleController::class, 'index'])->name('sales.index');

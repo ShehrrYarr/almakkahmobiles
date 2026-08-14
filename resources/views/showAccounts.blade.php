@@ -37,7 +37,7 @@
                         <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">
                             <i class="feather icon-x"></i> Cancel
                         </button>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="creditSaveBtn">
                             <i class="fa fa-check-square-o"></i> Save
                         </button>
                     </div>
@@ -84,7 +84,7 @@
                         <button type="button" class="btn btn-warning mr-1" data-dismiss="modal">
                             <i class="feather icon-x"></i> Cancel
                         </button>
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" id="debitSaveBtn">
                             <i class="fa fa-check-square-o"></i> Save
                         </button>
                     </div>
@@ -298,6 +298,17 @@
             // Initial call
             recalcBalance();
             });
+
+        // Prevent double-submit (double-click) from creating duplicate ledger entries
+        function disableOnSubmit(formId, btnId) {
+            document.getElementById(formId).addEventListener('submit', function () {
+                var btn = document.getElementById(btnId);
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+            });
+        }
+        disableOnSubmit('storeMobile', 'creditSaveBtn');
+        disableOnSubmit('editmobile', 'debitSaveBtn');
 
         function remove(value) {
         console.log(value);
