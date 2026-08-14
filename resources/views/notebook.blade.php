@@ -49,7 +49,7 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted small mb-2">Shared by everyone &mdash; anything typed here is visible to all users after they refresh the page. Right-click a cell for more options (insert/delete rows &amp; columns).</p>
+                    <p class="text-muted small mb-2">Shared by everyone &mdash; anything typed here is visible to all users after they refresh the page. Right-click a cell for more options (insert/delete rows &amp; columns). Select a cell and press <strong>Ctrl+B</strong> to bold it.</p>
                     <div id="notebook-sheet"></div>
                 </div>
             </div>
@@ -60,16 +60,32 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        var initialData = @json($data);
+        var initialValues = @json($values);
+        var initialStyle = @json($style && count($style) ? $style : (object) []);
         var csrf = '{{ csrf_token() }}';
         var saveUrl = '{{ route('notebook.save') }}';
         var statusEl = document.getElementById('notebook-status');
+        var sheetEl = document.getElementById('notebook-sheet');
 
         var minRows = 20;
         var minCols = 10;
 
+        function colLetter(x) {
+            var s = '', n = x + 1;
+            while (n > 0) {
+                var rem = (n - 1) % 26;
+                s = String.fromCharCode(65 + rem) + s;
+                n = Math.floor((n - 1) / 26);
+            }
+            return s;
+        }
+        function cellName(x, y) { return colLetter(x) + (y + 1); }
+
+        var lastSelection = null; // [x1, y1, x2, y2]
+
         var options = {
-            data: (initialData && initialData.length) ? initialData : undefined,
+            data: (initialValues && initialValues.length) ? initialValues : undefined,
+            style: initialStyle,
             minDimensions: [minCols, minRows],
             tableOverflow: true,
             tableWidth: '100%',
@@ -84,9 +100,39 @@
             oninsertcolumn: function () { scheduleSave(); },
             ondeleterow: function () { scheduleSave(); },
             ondeletecolumn: function () { scheduleSave(); },
+            onselection: function (instance, x1, y1, x2, y2) {
+                lastSelection = [x1, y1, x2, y2];
+            },
         };
 
-        var sheet = jspreadsheet(document.getElementById('notebook-sheet'), options);
+        var sheet = jspreadsheet(sheetEl, options);
+
+        function toggleBoldOnSelection() {
+            if (!lastSelection) return;
+            var minX = Math.min(lastSelection[0], lastSelection[2]);
+            var maxX = Math.max(lastSelection[0], lastSelection[2]);
+            var minY = Math.min(lastSelection[1], lastSelection[3]);
+            var maxY = Math.max(lastSelection[1], lastSelection[3]);
+
+            var anchorStyle = sheet.getStyle(cellName(minX, minY)) || '';
+            var isBold = /font-weight\s*:\s*bold/.test(anchorStyle);
+
+            for (var y = minY; y <= maxY; y++) {
+                for (var x = minX; x <= maxX; x++) {
+                    sheet.setStyle(cellName(x, y), 'font-weight', isBold ? 'normal' : 'bold');
+                }
+            }
+            scheduleSave();
+        }
+
+        sheetEl.addEventListener('keydown', function (e) {
+            var key = e.key ? e.key.toLowerCase() : '';
+            if ((e.ctrlKey || e.metaKey) && key === 'b') {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleBoldOnSelection();
+            }
+        }, true);
 
         var saveTimer = null;
         function scheduleSave() {
@@ -98,6 +144,7 @@
 
         function doSave() {
             var grid = sheet.getData();
+            var style = sheet.getStyle();
             fetch(saveUrl, {
                 method: 'POST',
                 headers: {
@@ -105,7 +152,7 @@
                     'X-CSRF-TOKEN': csrf,
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify({ data: grid }),
+                body: JSON.stringify({ data: grid, style: style }),
             })
             .then(function (res) { return res.json(); })
             .then(function (json) {

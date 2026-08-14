@@ -15,9 +15,11 @@ class NotebookController extends Controller
     public function index()
     {
         $notebook = Notebook::first();
+        $stored = $notebook->data ?? [];
 
         return view('notebook', [
-            'data' => $notebook->data ?? [],
+            'values' => $stored['values'] ?? [],
+            'style' => $stored['style'] ?? [],
             'updatedAt' => $notebook->updated_at ?? null,
             'updatedBy' => optional(optional($notebook)->updater)->name,
         ]);
@@ -27,10 +29,14 @@ class NotebookController extends Controller
     {
         $validated = $request->validate([
             'data' => 'required|array',
+            'style' => 'nullable|array',
         ]);
 
         $notebook = Notebook::first() ?? new Notebook();
-        $notebook->data = $validated['data'];
+        $notebook->data = [
+            'values' => $validated['data'],
+            'style'  => $validated['style'] ?? [],
+        ];
         $notebook->updated_by = auth()->id();
         $notebook->save();
 
