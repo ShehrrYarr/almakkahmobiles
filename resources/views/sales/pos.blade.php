@@ -1100,6 +1100,10 @@
       payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(netTotal), reference_no: method === 'bank' ? (reference_no || null) : null });
     }
     return {
+      // Idempotency key: generated once per checkout attempt and reused on every
+      // retry (initial online try, offline queue, and every later sync attempt)
+      // so a lost response followed by a retry can't create a duplicate sale.
+      client_ref: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('cr_' + Date.now() + '_' + Math.random().toString(36).slice(2)),
       vendor_id, customer_name, customer_mobile, comment,
       pay_amount:     vendor_id ? Number(raw_pay_amount) : Number(netTotal),
       payment_method: method,

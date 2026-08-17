@@ -16,9 +16,10 @@ class Sale extends Model
         'customer_mobile',
         'sale_date',
         'total_amount',
-        'pay_amount',  
-        'user_id','status', 'approved_at', 'approved_by','discount_amount', 'comment'
-    ];  
+        'pay_amount',
+        'user_id','status', 'approved_at', 'approved_by','discount_amount', 'comment',
+        'client_ref',
+    ];
     
     public function vendor() {
         return $this->belongsTo(vendor::class);

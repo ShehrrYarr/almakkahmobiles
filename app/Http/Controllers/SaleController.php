@@ -266,7 +266,24 @@ public function checkout(Request $request)
         'payments.*.bank_id'      => 'nullable|exists:banks,id',
         'payments.*.amount'       => 'required_with:payments|numeric|min:0.01',
         'payments.*.reference_no' => 'nullable|string|max:255',
+
+        // client-generated idempotency key — same key on every retry of one checkout attempt
+        'client_ref'        => 'nullable|string|max:64',
     ]);
+
+    // Idempotency: if this exact checkout attempt already went through (e.g. the
+    // request succeeded server-side but the response never reached the browser,
+    // so the client retried), return the sale that already exists instead of
+    // creating a duplicate.
+    if (!empty($data['client_ref'])) {
+        $existing = \App\Models\Sale::where('client_ref', $data['client_ref'])->first();
+        if ($existing) {
+            return response()->json([
+                'success'        => true,
+                'invoice_number' => $existing->id,
+            ]);
+        }
+    }
 
     // Walk-in normalization
     $customerName   = $data['customer_name']   ?? null;
@@ -287,6 +304,7 @@ public function checkout(Request $request)
 
             // 1) Create Sale (totals will be updated after items)
             $sale = \App\Models\Sale::create([
+                'client_ref'      => $data['client_ref'] ?? null,
                 'vendor_id'       => $data['vendor_id'] ?? null,
                 'customer_name'   => $customerName,
                 'customer_mobile' => $customerMobile,
@@ -487,6 +505,20 @@ public function checkout(Request $request)
             'invoice_number' => $sale->id,
         ]);
 
+    } catch (\Illuminate\Database\QueryException $e) {
+        // Two near-simultaneous requests for the same client_ref (e.g. the same
+        // sale queued in two open POS tabs) can both pass the idempotency check
+        // above before either commits. The unique constraint on client_ref stops
+        // the second insert — treat that as success and return the sale the
+        // other request just created, instead of surfacing a 500.
+        if (!empty($data['client_ref']) && str_contains($e->getMessage(), 'client_ref')) {
+            $existing = \App\Models\Sale::where('client_ref', $data['client_ref'])->first();
+            if ($existing) {
+                return response()->json(['success' => true, 'invoice_number' => $existing->id]);
+            }
+        }
+        \Log::error('Checkout Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
     } catch (\Throwable $e) {
         \Log::error('Checkout Error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
         return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
