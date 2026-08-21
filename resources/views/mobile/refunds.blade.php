@@ -47,7 +47,7 @@
                                         <ul class="mb-0" style="list-style:none; padding-left:0;">
                                             @foreach($refund->items as $item)
                                             <li>
-                                                {{ $item->saleItem->unit->mobile->name ?? '-' }}
+                                                {{ $item->saleItem->unit->name ?? '-' }}
                                                 <span class="text-muted">(IMEI {{ $item->saleItem->unit->imei ?? '-' }})</span>
                                                 — Rs. {{ number_format($item->refund_amount, 2) }}
                                             </li>

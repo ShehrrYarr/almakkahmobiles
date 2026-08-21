@@ -21,15 +21,14 @@ class MobileHeldOrderController extends Controller
             'cart_items.*.mobile_name'      => 'required|string',
             'cart_items.*.price'            => 'required|numeric|min:0',
             'cart_items.*.discount'         => 'nullable|numeric|min:0',
-            'vendor_id'       => 'nullable|exists:mobile_vendors,id',
             'customer_name'   => 'nullable|string|max:255',
             'customer_mobile' => 'nullable|string|max:20',
             'comment'         => 'nullable|string|max:1000',
         ]);
 
         $held = MobileHeldOrder::create([
+            'shop_id'          => session('current_shop_id'),
             'user_id'          => auth()->id(),
-            'mobile_vendor_id' => $data['vendor_id'] ?? null,
             'customer_name'    => $data['customer_name'] ?? null,
             'customer_mobile'  => $data['customer_mobile'] ?? null,
             'comment'          => $data['comment'] ?? null,
@@ -42,7 +41,8 @@ class MobileHeldOrderController extends Controller
 
     public function index()
     {
-        $orders = MobileHeldOrder::where('user_id', auth()->id())
+        $orders = MobileHeldOrder::where('shop_id', session('current_shop_id'))
+            ->where('user_id', auth()->id())
             ->orderByDesc('held_at')
             ->get()
             ->map(function ($h) {
@@ -58,10 +58,9 @@ class MobileHeldOrderController extends Controller
                     'held_at'         => $h->held_at->format('d M Y, H:i'),
                     'item_count'      => count($items),
                     'total'           => number_format($total, 2),
-                    'customer'        => optional($h->vendor)->name ?? $h->customer_name ?? 'Walk-in',
+                    'customer'        => $h->customer_name ?: 'Walk-in',
                     'comment'         => $h->comment,
                     'cart_items'      => $items,
-                    'vendor_id'       => $h->mobile_vendor_id,
                     'customer_name'   => $h->customer_name,
                     'customer_mobile' => $h->customer_mobile,
                 ];
@@ -73,6 +72,7 @@ class MobileHeldOrderController extends Controller
     public function destroy($id)
     {
         MobileHeldOrder::where('id', $id)
+            ->where('shop_id', session('current_shop_id'))
             ->where('user_id', auth()->id())
             ->firstOrFail()
             ->delete();

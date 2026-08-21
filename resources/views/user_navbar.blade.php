@@ -257,19 +257,6 @@
                                                 data-toggle="tooltip" data-placement="right"
                                                 data-original-title="Mobile Section"></i>
                                 </li>
-                                <li class=" nav-item"><a href="#"><i class="feather icon-book-open"></i><span
-                                                        class="menu-title" data-i18n="Templates">Mobile Vendors</span></a>
-                                        <ul class="menu-content">
-                                                <li class="@if(\Request::is('mobile/showvendors')) active @endif"><a
-                                                                class="menu-item" href="/mobile/showvendors"
-                                                                data-i18n="1 columns">Manage Vendors</a>
-                                                </li>
-                                                <li class="@if(\Request::is('mobile/receivablevendors')) active @endif"><a
-                                                                class="menu-item" href="/mobile/receivablevendors"
-                                                                data-i18n="1 columns">Receivable Vendors</a>
-                                                </li>
-                                        </ul>
-                                </li>
                                 <li class=" nav-item"><a href="#"><i class="feather icon-tv"></i><span
                                                         class="menu-title" data-i18n="Templates">Mobile Make
                                                         Sale</span></a>
@@ -296,10 +283,6 @@
                                                         class="menu-title" data-i18n="Templates">Mobile
                                                         Inventory</span></a>
                                         <ul class="menu-content">
-                                                <li class="@if (\Request::is('mobile/inventory')) active @endif"><a
-                                                                class="menu-item" href="/mobile/inventory"
-                                                                data-i18n="1 columns">Manage Mobile</a>
-                                                </li>
                                                 <li class="@if (\Request::is('mobile/purchase')) active @endif"><a
                                                                 class="menu-item" href="/mobile/purchase"
                                                                 data-i18n="1 columns">Purchase Mobile</a>
@@ -311,20 +294,6 @@
                                                 <li class="@if (\Request::is('mobile/purchase/report')) active @endif"><a
                                                                 class="menu-item" href="/mobile/purchase/report"
                                                                 data-i18n="1 columns">Purchase Report</a>
-                                                </li>
-                                        </ul>
-                                </li>
-                                <li class=" nav-item"><a href="#"><i class="feather icon-tv"></i><span
-                                                        class="menu-title" data-i18n="Templates">Mobile Add
-                                                        values</span></a>
-                                        <ul class="menu-content">
-                                                <li class="@if (\Request::is('mobile/showcompanies')) active @endif"><a
-                                                                class="menu-item" href="/mobile/showcompanies"
-                                                                data-i18n="1 columns">Companies</a>
-                                                </li>
-                                                <li class="@if (\Request::is('mobile/showgroups')) active @endif"><a
-                                                                class="menu-item" href="/mobile/showgroups"
-                                                                data-i18n="1 columns">Conditions</a>
                                                 </li>
                                         </ul>
                                 </li>
@@ -359,6 +328,10 @@
                                                 <li class="@if (\Request::is('mobile/banks')) active @endif">
                                                         <a class="menu-item" href="/mobile/banks" data-i18n="1 columns">Manage
                                                                 Mobile Banks</a>
+                                                </li>
+                                                <li class="@if (\Request::is('shops')) active @endif">
+                                                        <a class="menu-item" href="/shops" data-i18n="1 columns">Manage
+                                                                Shops</a>
                                                 </li>
                                                 <li
                                                         class="@if (\Request::is('send-message-to-customers')) active @endif">

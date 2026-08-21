@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MobileAccount;
 use App\Models\MobileSale;
 use App\Models\MobileSaleItem;
 use App\Models\MobileSalePayment;
@@ -24,12 +23,12 @@ class MobileSaleReturnController extends Controller
      */
     public function itemsForSale($saleId)
     {
-        $sale = MobileSale::with('items.unit.mobile')->findOrFail($saleId);
+        $sale = MobileSale::with('items.unit')->where('shop_id', session('current_shop_id'))->findOrFail($saleId);
 
         $items = $sale->items->map(function ($item) {
             return [
                 'id'          => $item->id,
-                'mobile_name' => $item->unit->mobile->name ?? '-',
+                'mobile_name' => $item->unit->name ?? '-',
                 'imei'        => $item->unit->imei ?? '-',
                 'price'       => $item->price,
                 'already_returned' => MobileSaleReturnItem::where('mobile_sale_item_id', $item->id)->exists(),
@@ -41,6 +40,10 @@ class MobileSaleReturnController extends Controller
 
     public function processReturn(Request $request, MobileSale $sale)
     {
+        if ($sale->shop_id !== session('current_shop_id')) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
+
         $data = $request->validate([
             'item_ids'   => 'required|array|min:1',
             'item_ids.*' => 'integer',
@@ -56,7 +59,6 @@ class MobileSaleReturnController extends Controller
             ]);
 
             $totalReturnValue = 0.0;
-            $imeis = [];
 
             foreach ($data['item_ids'] as $itemId) {
                 $item = MobileSaleItem::with('unit')->where('mobile_sale_id', $sale->id)->find($itemId);
@@ -74,7 +76,6 @@ class MobileSaleReturnController extends Controller
                 if ($item->unit) {
                     $item->unit->status = 'in_stock';
                     $item->unit->save();
-                    $imeis[] = $item->unit->imei;
                 }
 
                 $totalReturnValue += (float) $item->price;
@@ -89,49 +90,21 @@ class MobileSaleReturnController extends Controller
             $sale->save();
 
             $paidSoFar = (float) $sale->payments()->sum('amount');
-
-            if ($sale->mobile_vendor_id) {
-                MobileAccount::create([
-                    'mobile_vendor_id' => $sale->mobile_vendor_id,
-                    'mobile_sale_id'   => $sale->id,
-                    'debit'            => 0,
-                    'credit'           => round($totalReturnValue, 2),
-                    'description'      => "Return for Mobile Sale #{$sale->id} (SR# {$saleReturn->id}) — IMEI " . implode(', ', $imeis),
-                    'created_by'       => auth()->id(),
+            $refundToCash = min($totalReturnValue, max(0, $paidSoFar));
+            if ($refundToCash > 0) {
+                MobileSalePayment::create([
+                    'mobile_sale_id' => $sale->id,
+                    'method'         => 'counter',
+                    'mobile_bank_id' => null,
+                    'amount'         => -round($refundToCash, 2),
+                    'reference_no'   => 'RETURN-' . $saleReturn->id,
+                    'processed_by'   => auth()->id(),
+                    'paid_at'        => now(),
                 ]);
-
-                $refundToCash = min($totalReturnValue, max(0, $paidSoFar));
-                if ($refundToCash > 0) {
-                    MobileSalePayment::create([
-                        'mobile_sale_id' => $sale->id,
-                        'method'         => 'counter',
-                        'mobile_bank_id' => null,
-                        'amount'         => -round($refundToCash, 2),
-                        'reference_no'   => 'RETURN-' . $saleReturn->id,
-                        'processed_by'   => auth()->id(),
-                        'paid_at'        => now(),
-                    ]);
-                }
-
-                $sale->pay_amount = max(0, (float) $sale->payments()->sum('amount'));
-                $sale->save();
-            } else {
-                $refundToCash = min($totalReturnValue, max(0, $paidSoFar));
-                if ($refundToCash > 0) {
-                    MobileSalePayment::create([
-                        'mobile_sale_id' => $sale->id,
-                        'method'         => 'counter',
-                        'mobile_bank_id' => null,
-                        'amount'         => -round($refundToCash, 2),
-                        'reference_no'   => 'RETURN-' . $saleReturn->id,
-                        'processed_by'   => auth()->id(),
-                        'paid_at'        => now(),
-                    ]);
-                }
-
-                $sale->pay_amount = max(0, (float) $sale->payments()->sum('amount'));
-                $sale->save();
             }
+
+            $sale->pay_amount = max(0, (float) $sale->payments()->sum('amount'));
+            $sale->save();
 
             \DB::commit();
 

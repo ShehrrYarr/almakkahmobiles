@@ -38,9 +38,14 @@
                                 <input class="form-check-input" type="checkbox" name="has_accessory_access" value="1" id="add_access_accessory" checked>
                                 <label class="form-check-label" for="add_access_accessory">Accessory Section</label>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="has_mobile_access" value="1" id="add_access_mobile">
-                                <label class="form-check-label" for="add_access_mobile">Mobile Section</label>
+                            <div class="mb-1">
+                                <label class="form-label" for="add_shop_id">Mobile Shop (leave blank for no Mobile access)</label>
+                                <select class="form-control" name="shop_id" id="add_shop_id">
+                                    <option value="">— None —</option>
+                                    @foreach($shops as $shop)
+                                    <option value="{{ $shop->id }}">{{ $shop->name }}</option>
+                                    @endforeach
+                                </select>
                             </div>
 
                             <label class="form-label font-weight-bold mt-2">Permissions</label>
@@ -135,9 +140,14 @@
                                     <input class="form-check-input" type="checkbox" name="has_accessory_access" value="1" id="edit_access_accessory">
                                     <label class="form-check-label" for="edit_access_accessory">Accessory Section</label>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="has_mobile_access" value="1" id="edit_access_mobile">
-                                    <label class="form-check-label" for="edit_access_mobile">Mobile Section</label>
+                                <div class="mb-1">
+                                    <label class="form-label" for="edit_shop_id">Mobile Shop (leave blank for no Mobile access)</label>
+                                    <select class="form-control" name="shop_id" id="edit_shop_id">
+                                        <option value="">— None —</option>
+                                        @foreach($shops as $shop)
+                                        <option value="{{ $shop->id }}">{{ $shop->name }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
 
                                 <label class="form-label font-weight-bold mt-2">Permissions</label>
@@ -239,10 +249,10 @@
                                                     @if ($user->has_accessory_access)
                                                         <span class="badge badge-light d-inline-block mb-1">Accessory</span>
                                                     @endif
-                                                    @if ($user->has_mobile_access)
-                                                        <span class="badge badge-light d-inline-block mb-1">Mobile</span>
+                                                    @if ($user->shop)
+                                                        <span class="badge badge-light d-inline-block mb-1">Mobile: {{ $user->shop->name }}</span>
                                                     @endif
-                                                    @if (!$user->has_accessory_access && !$user->has_mobile_access)
+                                                    @if (!$user->has_accessory_access && !$user->shop)
                                                         <em class="text-muted">None</em>
                                                     @endif
                                                 @endif
@@ -306,7 +316,7 @@
                     $('#is_active').val(u.is_active == 1 ? '1' : '0');
                     $('#edit_role').val(u.role);
                     $('#edit_access_accessory').prop('checked', !!u.has_accessory_access);
-                    $('#edit_access_mobile').prop('checked', !!u.has_mobile_access);
+                    $('#edit_shop_id').val(u.shop_id || '');
 
                     // Show the correct permissions panel based on role
                     onEditRoleChange(u.role);

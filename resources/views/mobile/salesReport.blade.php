@@ -22,13 +22,6 @@
                     <div>
                         <input type="date" class="form-control" name="end_date" value="{{ $end }}" style="max-width: 180px;">
                     </div>
-                    <div>
-                        <select id="vendor_filter" name="vendor_id" class="form-control" style="min-width: 240px;">
-                            @if($vendorId)
-                            <option value="{{ $vendorId }}" selected>{{ optional($vendors->firstWhere('id', $vendorId))->name }}</option>
-                            @endif
-                        </select>
-                    </div>
                     <button type="submit" class="btn btn-primary">Filter</button>
                     <a href="{{ route('mobile.sales.report') }}" class="btn btn-secondary">Reset</a>
                 </form>
@@ -54,7 +47,7 @@
                                 <tr>
                                     <th>Sale #</th>
                                     <th>Date</th>
-                                    <th>Customer/Vendor</th>
+                                    <th>Customer</th>
                                     <th>Items</th>
                                     <th>Total</th>
                                     <th>Profit</th>
@@ -68,10 +61,8 @@
                                     <td>{{ $sale->id }}</td>
                                     <td>{{ \Carbon\Carbon::parse($sale->sale_date)->format('d M Y, H:i') }}</td>
                                     <td>
-                                        @if($sale->vendor)
-                                        Vendor: {{ $sale->vendor->name }}
-                                        @elseif($sale->customer_name)
-                                        Customer: {{ $sale->customer_name }}
+                                        @if($sale->customer_name)
+                                        {{ $sale->customer_name }}
                                         @else
                                         Walk-in
                                         @endif
@@ -114,18 +105,6 @@
 
 <script>
     $(document).ready(function () {
-        $('#vendor_filter').select2({
-            theme: 'bootstrap4', width: '100%', placeholder: 'All Vendors', allowClear: true,
-            ajax: {
-                url: '{{ route('mobile.vendors.search') }}',
-                dataType: 'json', delay: 200,
-                data: params => ({ q: params.term || '' }),
-                processResults: data => ({ results: data }),
-                cache: true
-            },
-            minimumInputLength: 0
-        });
-
         $('#mobileSalesReportTable').DataTable({ order: [[0, 'desc']] });
     });
 </script>

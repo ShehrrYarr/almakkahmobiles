@@ -26,9 +26,7 @@
         <div>Invoice #: {{ $sale->id }}</div>
         <div>Date: {{ \Carbon\Carbon::parse($sale->sale_date)->format('d M Y, H:i') }}</div>
         <div>Cashier: {{ $sale->user->name ?? '-' }}</div>
-        @if($sale->vendor)
-        <div>Vendor: {{ $sale->vendor->name }}</div>
-        @elseif($sale->customer_name)
+        @if($sale->customer_name)
         <div>Customer: {{ $sale->customer_name }}</div>
         @if($sale->customer_mobile)<div>Mobile: {{ $sale->customer_mobile }}</div>@endif
         @endif
@@ -47,7 +45,7 @@
                 @foreach($sale->items as $item)
                 <tr>
                     <td style="text-align:left;">
-                        {{ $item->unit->mobile->name ?? '-' }}<br>
+                        {{ $item->unit->name ?? '-' }}<br>
                         <span style="font-size:10px;color:#555;">IMEI: {{ $item->unit->imei ?? '-' }}</span>
                     </td>
                     <td style="text-align:right;">{{ number_format($item->price, 0) }}</td>
@@ -59,9 +57,6 @@
         @php
             $netTotal = (float) $sale->total_amount;
             $discount = (float) ($sale->discount_amount ?? 0);
-            $isVendorSale = !empty($sale->vendor);
-            $paid = (float) ($sale->pay_amount ?? 0);
-            $remaining = $isVendorSale ? max($netTotal - $paid, 0) : 0;
         @endphp
         <table>
             @if($discount > 0)
@@ -73,9 +68,6 @@
             @foreach($sale->payments as $p)
             <tr><td>Paid ({{ ucfirst($p->method) }}{{ $p->bank ? ' - '.$p->bank->name : '' }})</td><td style="text-align:right;">Rs. {{ number_format($p->amount, 0) }}</td></tr>
             @endforeach
-            @endif
-            @if($isVendorSale && $remaining > 0)
-            <tr class="bold"><td>Remaining (on vendor account)</td><td style="text-align:right;">Rs. {{ number_format($remaining, 0) }}</td></tr>
             @endif
         </table>
         <hr>

@@ -14,13 +14,14 @@ class MobileBankController extends Controller
 
     public function index()
     {
-        $banks = MobileBank::all();
+        $banks = MobileBank::where('shop_id', session('current_shop_id'))->get();
         return view('mobile.banks.index', compact('banks'));
     }
 
     public function storeBank(Request $request)
     {
         $bank = new MobileBank();
+        $bank->shop_id = session('current_shop_id');
         $bank->name = $request->name;
         $bank->account_no = $request->account_no;
         $bank->branch = $request->branch ?? 'No Branch';
@@ -33,7 +34,7 @@ class MobileBankController extends Controller
 
     public function getBank($id)
     {
-        $filterId = MobileBank::find($id);
+        $filterId = MobileBank::where('shop_id', session('current_shop_id'))->find($id);
         if (!$filterId) {
             return response()->json(['message' => 'Id not found'], 404);
         }
@@ -43,7 +44,7 @@ class MobileBankController extends Controller
 
     public function updateBank(Request $request)
     {
-        $bank = MobileBank::findOrFail($request->id);
+        $bank = MobileBank::where('shop_id', session('current_shop_id'))->findOrFail($request->id);
         $bank->name = $request->name;
         $bank->account_no = $request->account_no;
         $bank->branch = $request->branch;

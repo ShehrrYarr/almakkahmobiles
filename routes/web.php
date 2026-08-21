@@ -17,13 +17,9 @@ use App\Http\Controllers\BankController;
 
 use App\Http\Controllers\SalesLiveController;
 
-use App\Http\Controllers\MobileCompanyController;
-use App\Http\Controllers\MobileGroupController;
-use App\Http\Controllers\MobileVendorController;
 use App\Http\Controllers\MobileBankController;
 use App\Http\Controllers\MobileController;
 use App\Http\Controllers\MobilePurchaseController;
-use App\Http\Controllers\MobileAccountController;
 use App\Http\Controllers\MobileSaleController;
 use App\Http\Controllers\MobileHeldOrderController;
 use App\Http\Controllers\MobileSaleReturnController;
@@ -295,34 +291,31 @@ Route::middleware(['auth', 'login.time.restrict', 'role:admin', 'section:accesso
 //Check lagana h agr koi item loss me jarha ho to usko alert dy 
 
 //======================================================================
-// MOBILE SECTION — parallel system for phones/IMEI-tracked inventory
-// All routes gated by 'section:mobile' (admin bypasses automatically).
+// SHOPS — admin manages shops via the normal global login (no shop
+// context required to reach these; that's precisely how an admin without
+// a "current shop" yet gets somewhere useful).
 //======================================================================
-Route::middleware(['auth', 'login.time.restrict', 'section:mobile'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function () {
+    Route::get('/shops', [\App\Http\Controllers\ShopController::class, 'index'])->name('shops.index');
+    Route::post('/shops', [\App\Http\Controllers\ShopController::class, 'store'])->name('shops.store');
+    Route::get('/shops/{id}/edit', [\App\Http\Controllers\ShopController::class, 'edit'])->name('shops.edit');
+    Route::put('/shops', [\App\Http\Controllers\ShopController::class, 'update'])->name('shops.update');
+    Route::get('/shops/{id}/enter', [\App\Http\Controllers\ShopController::class, 'enter'])->name('shops.enter');
+});
 
-    // Companies (lookup)
-    Route::get('/mobile/showcompanies', [MobileCompanyController::class, 'showCompanies'])->name('mobile.showcompanies');
-    Route::post('/mobile/company/store', [MobileCompanyController::class, 'storeCompany'])->name('mobile.storeCompany');
-    Route::get('/mobile/editcompany/{id}', [MobileCompanyController::class, 'editCompany'])->name('mobile.editcompany');
-    Route::put('/mobile/updatecompany', [MobileCompanyController::class, 'updateCompany'])->name('mobile.updateCompany');
-    Route::post('/mobile/deletecompany', [MobileCompanyController::class, 'destroyCompany'])->name('mobile.destroyCompany');
+//======================================================================
+// SHOP LOGIN — each Mobile shop has its own login URL. Not gated by
+// 'auth' (that's the point) or 'shop.context' (there's no context yet).
+//======================================================================
+Route::get('/shop/{slug}/login', [\App\Http\Controllers\Auth\ShopLoginController::class, 'showLoginForm'])->name('shop.login');
+Route::post('/shop/{slug}/login', [\App\Http\Controllers\Auth\ShopLoginController::class, 'login'])->name('shop.login.submit');
+Route::post('/shop/{slug}/logout', [\App\Http\Controllers\Auth\ShopLoginController::class, 'logout'])->name('shop.logout');
 
-    // Groups (condition lookup)
-    Route::get('/mobile/showgroups', [MobileGroupController::class, 'showGroups'])->name('mobile.showgroups');
-    Route::post('/mobile/group/store', [MobileGroupController::class, 'storeGroup'])->name('mobile.storeGroup');
-    Route::get('/mobile/editgroup/{id}', [MobileGroupController::class, 'editGroup'])->name('mobile.editgroup');
-    Route::put('/mobile/updategroup', [MobileGroupController::class, 'updateGroup'])->name('mobile.updateGroup');
-    Route::post('/mobile/deletegroup', [MobileGroupController::class, 'destroyGroup'])->name('mobile.destroyGroup');
-
-    // Vendors
-    Route::get('/mobile/showvendors', [MobileVendorController::class, 'showVendors'])->name('mobile.showvendors');
-    Route::get('/mobile/vendors/search', [MobileVendorController::class, 'search'])->name('mobile.vendors.search');
-    Route::post('/mobile/vendors/store', [MobileVendorController::class, 'storeVendor'])->name('mobile.storeVendor');
-    Route::get('/mobile/editvendor/{id}', [MobileVendorController::class, 'editVendor'])->name('mobile.editvendor');
-    Route::put('/mobile/updatevendor', [MobileVendorController::class, 'updateVendor'])->name('mobile.updateVendor');
-    Route::post('/mobile/deletevendor', [MobileVendorController::class, 'destroyVendor'])->name('mobile.destroyVendor');
-    Route::get('/mobile/vendor-balance/{id}', [MobileVendorController::class, 'getBalance'])->name('mobile.vendor.balance');
-    Route::get('/mobile/receivablevendors', [MobileVendorController::class, 'listReceivables'])->name('mobile.receivablevendors');
+//======================================================================
+// MOBILE SECTION — parallel system for phones/IMEI-tracked inventory,
+// scoped to whichever shop is active in session (see EnsureShopContext).
+//======================================================================
+Route::middleware(['auth', 'login.time.restrict', 'shop.context'])->group(function () {
 
     // Banks
     Route::get('/mobile/banks', [MobileBankController::class, 'index'])->name('mobile.banks.index');
@@ -330,24 +323,13 @@ Route::middleware(['auth', 'login.time.restrict', 'section:mobile'])->group(func
     Route::get('/mobile/getbank/{id}', [MobileBankController::class, 'getBank'])->name('mobile.getBank');
     Route::put('/mobile/updatebank', [MobileBankController::class, 'updateBank'])->name('mobile.updateBank');
 
-    // Mobile catalog
-    Route::get('/mobile/inventory', [MobileController::class, 'index'])->name('mobile.index');
+    // Mobile units (the whole inventory — no separate reusable catalog)
     Route::get('/mobile/units', [MobileController::class, 'units'])->name('mobile.units');
-    Route::post('/mobile/store', [MobileController::class, 'store'])->name('mobile.store');
-    Route::get('/mobile/editmobile/{id}', [MobileController::class, 'edit'])->name('mobile.edit');
-    Route::put('/mobile/update', [MobileController::class, 'update'])->name('mobile.update');
 
-    // Purchase (serialized unit intake)
+    // Purchase (one phone per purchase — seller details + unit details + photos)
     Route::get('/mobile/purchase', [MobilePurchaseController::class, 'create'])->name('mobile.purchase.create');
-    Route::post('/mobile/purchase', [MobilePurchaseController::class, 'bulkStore'])->name('mobile.purchase.store');
+    Route::post('/mobile/purchase', [MobilePurchaseController::class, 'store'])->name('mobile.purchase.store');
     Route::get('/mobile/purchase/report', [MobilePurchaseController::class, 'report'])->name('mobile.purchase.report');
-
-    // Ledger
-    Route::get('/mobile/accounts/{id}', [MobileAccountController::class, 'showAccounts'])->name('mobile.showAccounts');
-    Route::post('/mobile/credit', [MobileAccountController::class, 'creditAmount'])->name('mobile.creditAmount');
-    Route::post('/mobile/debit', [MobileAccountController::class, 'debitAmount'])->name('mobile.debitAmount');
-    Route::get('/mobile/getaccount/{id}', [MobileAccountController::class, 'getaccount'])->name('mobile.getaccount');
-    Route::post('/mobile/deleteaccount', [MobileAccountController::class, 'destroyAccount'])->name('mobile.destroyAccount');
 
     // POS
     Route::get('/mobile/pos', [MobileSaleController::class, 'pos'])->name('mobile.pos');

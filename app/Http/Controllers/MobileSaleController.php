@@ -2,14 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MobileAccount;
 use App\Models\MobileBank;
 use App\Models\MobileSale;
 use App\Models\MobileSaleItem;
 use App\Models\MobileSalePayment;
 use App\Models\MobileSaleReturn;
 use App\Models\MobileUnit;
-use App\Models\MobileVendor;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -20,27 +18,27 @@ class MobileSaleController extends Controller
         $this->middleware('auth');
     }
 
-    public function pos()
+    public function pos(Request $request)
     {
-        $vendors = MobileVendor::orderBy('name')->get();
-        $units = MobileUnit::with('mobile')
+        $shopId = session('current_shop_id');
+
+        $units = MobileUnit::where('shop_id', $shopId)
             ->where('status', 'in_stock')
             ->get();
 
         $startOfDay = Carbon::now('Asia/Karachi')->startOfDay();
         $endOfDay   = Carbon::now('Asia/Karachi')->endOfDay();
 
-        $sales = MobileSale::with(['vendor', 'items.unit.mobile', 'user', 'payments.bank'])
+        $sales = MobileSale::with(['items.unit', 'user', 'payments.bank'])
+            ->where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startOfDay, $endOfDay])
             ->orderByDesc('id')
             ->get();
 
-        $banks = MobileBank::where('is_active', true)->orderBy('name')->get(['id', 'name', 'account_no']);
+        $banks = MobileBank::where('shop_id', $shopId)->where('is_active', true)->orderBy('name')->get(['id', 'name', 'account_no']);
 
         $totalSellingPrice = $sales->sum('total_amount');
-        $totalPaidPrice = $sales->sum(function ($sale) {
-            return $sale->vendor ? (float) ($sale->pay_amount ?? 0) : (float) $sale->total_amount;
-        });
+        $totalPaidPrice = (float) $sales->sum('total_amount');
 
         $allPayments = $sales->flatMap->payments;
         $counterTotal = (float) $allPayments->where('method', 'counter')->sum('amount');
@@ -50,16 +48,23 @@ class MobileSaleController extends Controller
             return ['name' => optional($first->bank)->name ?? 'Unknown Bank', 'total' => (float) $group->sum('amount')];
         });
 
+        // Sell button on the Mobile Units page: /mobile/pos?add_unit=123 prefills the cart.
+        $prefillUnit = null;
+        if ($request->filled('add_unit')) {
+            $prefillUnit = MobileUnit::where('shop_id', $shopId)
+                ->where('status', 'in_stock')
+                ->find($request->input('add_unit'));
+        }
+
         return view('mobile.pos', compact(
-            'vendors', 'units', 'sales', 'totalSellingPrice', 'totalPaidPrice',
-            'banks', 'counterTotal', 'bankTotal', 'bankBreakdown'
+            'units', 'sales', 'totalSellingPrice', 'totalPaidPrice',
+            'banks', 'counterTotal', 'bankTotal', 'bankBreakdown', 'prefillUnit'
         ));
     }
 
     public function checkout(Request $request)
     {
         $data = $request->validate([
-            'vendor_id'         => 'nullable|exists:mobile_vendors,id',
             'customer_name'     => 'nullable|string|max:255',
             'customer_mobile'   => 'nullable|string|max:20',
             'items'             => 'required|array|min:1',
@@ -67,7 +72,6 @@ class MobileSaleController extends Controller
             'items.*.price'     => 'required|numeric|min:0',
             'items.*.discount'  => 'nullable|numeric|min:0',
             'comment'           => 'nullable|string|max:1000',
-            'pay_amount'        => 'nullable|numeric|min:0',
             'payment_method'    => 'nullable|in:counter,bank',
             'bank_id'           => 'nullable|exists:mobile_banks,id',
             'reference_no'      => 'nullable|string|max:255',
@@ -87,18 +91,15 @@ class MobileSaleController extends Controller
             }
         }
 
-        $customerName   = $data['customer_name']   ?? null;
-        $customerMobile = $data['customer_mobile'] ?? null;
-        if (empty($data['vendor_id'])) {
-            $customerName   = $customerName   ?: 'Walk In Customer';
-            $customerMobile = $customerMobile ?: '00000000';
-        }
+        $shopId = session('current_shop_id');
+        $customerName   = $data['customer_name']   ?: 'Walk In Customer';
+        $customerMobile = $data['customer_mobile'] ?: '00000000';
 
         try {
-            $sale = \DB::transaction(function () use ($data, $customerName, $customerMobile) {
+            $sale = \DB::transaction(function () use ($data, $shopId, $customerName, $customerMobile) {
                 $sale = MobileSale::create([
+                    'shop_id'         => $shopId,
                     'client_ref'      => $data['client_ref'] ?? null,
-                    'mobile_vendor_id'=> $data['vendor_id'] ?? null,
                     'customer_name'   => $customerName,
                     'customer_mobile' => $customerMobile,
                     'sale_date'       => now(),
@@ -111,10 +112,9 @@ class MobileSaleController extends Controller
 
                 $netTotal = 0.0;
                 $discountTotal = 0.0;
-                $itemSummaries = [];
 
                 foreach ($data['items'] as $item) {
-                    $unit = MobileUnit::where('id', $item['mobile_unit_id'])->lockForUpdate()->first();
+                    $unit = MobileUnit::where('id', $item['mobile_unit_id'])->where('shop_id', $shopId)->lockForUpdate()->first();
                     if (!$unit) throw new \Exception('Mobile unit not found.');
                     if ($unit->status !== 'in_stock') {
                         throw new \Exception("IMEI {$unit->imei} is no longer available (already sold).");
@@ -137,8 +137,6 @@ class MobileSaleController extends Controller
 
                     $unit->status = 'sold';
                     $unit->save();
-
-                    $itemSummaries[] = ($unit->mobile->name ?? 'Mobile') . " (IMEI {$unit->imei}) @ Rs." . number_format($netUnit, 0);
                 }
 
                 $sale->total_amount    = $netTotal;
@@ -148,99 +146,34 @@ class MobileSaleController extends Controller
                 $paymentsInput = request()->input('payments', []);
                 $hasPayments = is_array($paymentsInput) && count($paymentsInput) > 0;
 
-                if (!empty($data['vendor_id'])) {
-                    MobileAccount::create([
-                        'mobile_vendor_id' => $data['vendor_id'],
-                        'mobile_sale_id'   => $sale->id,
-                        'debit'            => $sale->total_amount,
-                        'credit'           => 0,
-                        'description'      => "Mobile Sale #{$sale->id} — " . implode(', ', $itemSummaries),
-                        'created_by'       => auth()->id(),
-                    ]);
-
-                    if (!$hasPayments) {
-                        $legacyPay = min(max(0.0, (float) ($data['pay_amount'] ?? 0)), (float) $sale->total_amount);
-                        if ($legacyPay > 0) {
-                            $method = in_array($data['payment_method'] ?? '', ['counter', 'bank'], true) ? $data['payment_method'] : 'counter';
-                            $paymentsInput = [[
-                                'method'       => $method,
-                                'amount'       => $legacyPay,
-                                'bank_id'      => $method === 'bank' ? ($data['bank_id'] ?? null) : null,
-                                'reference_no' => $method === 'bank' ? ($data['reference_no'] ?? null) : null,
-                            ]];
-                            $hasPayments = true;
-                        }
-                    }
-
-                    $totalPaid = 0.0;
-                    $soFar = 0.0;
-                    if ($hasPayments) {
-                        foreach ($paymentsInput as $p) {
-                            $method = $p['method'] ?? null;
-                            $amount = isset($p['amount']) ? (float) $p['amount'] : 0.0;
-                            if (!$method || $amount <= 0) continue;
-
-                            $remaining = (float) $sale->total_amount - $soFar;
-                            if ($remaining <= 0) break;
-                            $use = min($amount, $remaining);
-
-                            MobileSalePayment::create([
-                                'mobile_sale_id' => $sale->id,
-                                'method'         => $method,
-                                'mobile_bank_id' => $method === 'bank' ? ($p['bank_id'] ?? null) : null,
-                                'amount'         => $use,
-                                'reference_no'   => $p['reference_no'] ?? null,
-                                'processed_by'   => auth()->id(),
-                                'paid_at'        => now(),
-                            ]);
-
-                            MobileAccount::create([
-                                'mobile_vendor_id' => $data['vendor_id'],
-                                'mobile_sale_id'   => $sale->id,
-                                'debit'            => 0,
-                                'credit'           => $use,
-                                'description'      => "Payment for Mobile Invoice #{$sale->id} via " . strtoupper($method),
-                                'created_by'       => auth()->id(),
-                            ]);
-
-                            $soFar += $use;
-                            $totalPaid += $use;
-                        }
-                    }
-
-                    $sale->pay_amount = $totalPaid;
-                    $sale->save();
-                } else {
-                    // Walk-in: full payment(s) recorded, no ledger entry (no vendor)
-                    if (!$hasPayments) {
-                        $method = in_array($data['payment_method'] ?? '', ['counter', 'bank'], true) ? $data['payment_method'] : 'counter';
-                        $paymentsInput = [[
-                            'method'       => $method,
-                            'amount'       => $sale->total_amount,
-                            'bank_id'      => $method === 'bank' ? ($data['bank_id'] ?? null) : null,
-                            'reference_no' => $method === 'bank' ? ($data['reference_no'] ?? null) : null,
-                        ]];
-                    }
-
-                    foreach ($paymentsInput as $p) {
-                        $method = $p['method'] ?? 'counter';
-                        $amount = isset($p['amount']) ? (float) $p['amount'] : 0.0;
-                        if ($amount <= 0) continue;
-
-                        MobileSalePayment::create([
-                            'mobile_sale_id' => $sale->id,
-                            'method'         => $method,
-                            'mobile_bank_id' => $method === 'bank' ? ($p['bank_id'] ?? null) : null,
-                            'amount'         => $amount,
-                            'reference_no'   => $p['reference_no'] ?? null,
-                            'processed_by'   => auth()->id(),
-                            'paid_at'        => now(),
-                        ]);
-                    }
-
-                    $sale->pay_amount = $sale->total_amount;
-                    $sale->save();
+                if (!$hasPayments) {
+                    $method = in_array($data['payment_method'] ?? '', ['counter', 'bank'], true) ? $data['payment_method'] : 'counter';
+                    $paymentsInput = [[
+                        'method'       => $method,
+                        'amount'       => $sale->total_amount,
+                        'bank_id'      => $method === 'bank' ? ($data['bank_id'] ?? null) : null,
+                        'reference_no' => $method === 'bank' ? ($data['reference_no'] ?? null) : null,
+                    ]];
                 }
+
+                foreach ($paymentsInput as $p) {
+                    $method = $p['method'] ?? 'counter';
+                    $amount = isset($p['amount']) ? (float) $p['amount'] : 0.0;
+                    if ($amount <= 0) continue;
+
+                    MobileSalePayment::create([
+                        'mobile_sale_id' => $sale->id,
+                        'method'         => $method,
+                        'mobile_bank_id' => $method === 'bank' ? ($p['bank_id'] ?? null) : null,
+                        'amount'         => $amount,
+                        'reference_no'   => $p['reference_no'] ?? null,
+                        'processed_by'   => auth()->id(),
+                        'paid_at'        => now(),
+                    ]);
+                }
+
+                $sale->pay_amount = $sale->total_amount;
+                $sale->save();
 
                 return $sale;
             });
@@ -263,13 +196,16 @@ class MobileSaleController extends Controller
 
     public function invoice($id)
     {
-        $sale = MobileSale::with(['vendor', 'items.unit.mobile', 'user', 'payments.bank'])->findOrFail($id);
+        $sale = MobileSale::with(['items.unit', 'user', 'payments.bank'])
+            ->where('shop_id', session('current_shop_id'))
+            ->findOrFail($id);
 
         return view('mobile.invoice', compact('sale'));
     }
 
     public function allSales(Request $request)
     {
+        $shopId = session('current_shop_id');
         $start = null;
         $end   = null;
 
@@ -279,13 +215,8 @@ class MobileSaleController extends Controller
         }
 
         $salesQuery = MobileSale::query()
-            ->with([
-                'vendor',
-                'user',
-                'items.unit.mobile',
-                'items.returnItems',
-                'payments.bank',
-            ])
+            ->with(['user', 'items.unit', 'items.returnItems', 'payments.bank'])
+            ->where('shop_id', $shopId)
             ->when($start && $end, fn ($q) => $q->whereBetween('sale_date', [$start, $end]))
             ->orderByDesc('id');
 
@@ -293,24 +224,19 @@ class MobileSaleController extends Controller
 
         // total_amount is already decremented on return, so summing it nets out returns.
         $totalSellingPrice = (float) MobileSale::query()
+            ->where('shop_id', $shopId)
             ->when($start && $end, fn ($q) => $q->whereBetween('sale_date', [$start, $end]))
             ->sum('total_amount');
 
         $totalPaidPrice = (float) MobileSale::query()
+            ->where('shop_id', $shopId)
             ->when($start && $end, fn ($q) => $q->whereBetween('sale_date', [$start, $end]))
-            ->selectRaw("
-                SUM(
-                    CASE
-                        WHEN mobile_vendor_id IS NOT NULL THEN COALESCE(pay_amount, 0)
-                        ELSE COALESCE(total_amount, 0)
-                    END
-                ) as total_paid
-            ")
-            ->value('total_paid');
+            ->sum('total_amount');
 
         // Payment amounts already go negative on refund, so bank/counter totals net out returns too.
         $paymentsAgg = \DB::table('mobile_sale_payments as sp')
             ->join('mobile_sales as s', 's.id', '=', 'sp.mobile_sale_id')
+            ->where('s.shop_id', $shopId)
             ->when($start && $end, fn ($q) => $q->whereBetween('s.sale_date', [$start, $end]))
             ->selectRaw("
                 SUM(CASE WHEN sp.method = 'bank' THEN COALESCE(sp.amount,0) ELSE 0 END) as bank_total,
@@ -326,6 +252,7 @@ class MobileSaleController extends Controller
             ->join('mobile_sales as s', 's.id', '=', 'si.mobile_sale_id')
             ->leftJoin('mobile_units as mu', 'mu.id', '=', 'si.mobile_unit_id')
             ->leftJoin('mobile_sale_return_items as r', 'r.mobile_sale_item_id', '=', 'si.id')
+            ->where('s.shop_id', $shopId)
             ->when($start && $end, fn ($q) => $q->whereBetween('s.sale_date', [$start, $end]))
             ->whereNull('r.id')
             ->selectRaw('SUM(COALESCE(si.price,0) - COALESCE(mu.purchase_price,0)) as total_profit')
@@ -345,20 +272,25 @@ class MobileSaleController extends Controller
 
     public function refundsPage()
     {
-        $refunds = MobileSaleReturn::with(['sale', 'items.saleItem.unit.mobile', 'user'])->latest()->get();
+        $shopId = session('current_shop_id');
+
+        $refunds = MobileSaleReturn::with(['sale', 'items.saleItem.unit', 'user'])
+            ->whereHas('sale', fn ($q) => $q->where('shop_id', $shopId))
+            ->latest()
+            ->get();
 
         return view('mobile.refunds', compact('refunds'));
     }
 
     public function salesReport(Request $request)
     {
-        $start    = $request->input('start_date');
-        $end      = $request->input('end_date');
-        $vendorId = $request->input('vendor_id');
+        $shopId = session('current_shop_id');
+        $start = $request->input('start_date');
+        $end   = $request->input('end_date');
 
-        $sales = MobileSale::with(['vendor', 'user', 'items.unit.mobile', 'items.returnItems'])
+        $sales = MobileSale::with(['user', 'items.unit', 'items.returnItems'])
+            ->where('shop_id', $shopId)
             ->when($start && $end, fn ($q) => $q->whereBetween('sale_date', ["$start 00:00:00", "$end 23:59:59"]))
-            ->when($vendorId, fn ($q) => $q->where('mobile_vendor_id', $vendorId))
             ->orderByDesc('id')
             ->get();
 
@@ -389,8 +321,6 @@ class MobileSaleController extends Controller
             ];
         });
 
-        $vendors = MobileVendor::orderBy('name')->get();
-
-        return view('mobile.salesReport', compact('rows', 'totalSelling', 'totalProfit', 'vendors', 'start', 'end', 'vendorId'));
+        return view('mobile.salesReport', compact('rows', 'totalSelling', 'totalProfit', 'start', 'end'));
     }
 }

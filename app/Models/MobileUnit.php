@@ -7,19 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 class MobileUnit extends Model
 {
     protected $fillable = [
-        'mobile_id', 'mobile_vendor_id', 'imei', 'storage', 'pta_status',
-        'battery', 'battery_cycle', 'purchase_price', 'selling_price',
-        'purchase_date', 'purchase_batch', 'description', 'status', 'user_id',
+        'shop_id', 'name', 'imei', 'imei2', 'storage', 'pta_status',
+        'battery', 'battery_cycle', 'has_box', 'purchase_price', 'selling_price',
+        'purchase_date', 'description',
+        'seller_name', 'seller_cnic', 'seller_phone', 'seller_address', 'seller_description',
+        'status', 'user_id',
     ];
 
-    public function mobile()
-    {
-        return $this->belongsTo(Mobile::class);
-    }
+    protected $casts = [
+        'has_box' => 'boolean',
+    ];
 
-    public function vendor()
+    public function shop()
     {
-        return $this->belongsTo(MobileVendor::class, 'mobile_vendor_id');
+        return $this->belongsTo(Shop::class);
     }
 
     public function user()
@@ -30,10 +31,5 @@ class MobileUnit extends Model
     public function images()
     {
         return $this->hasMany(MobileImage::class);
-    }
-
-    public function accounts()
-    {
-        return $this->hasMany(MobileAccount::class, 'mobile_unit_id');
     }
 }

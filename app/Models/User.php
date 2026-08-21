@@ -25,7 +25,7 @@ class User extends Authenticatable
         'is_active',
         'role',
         'has_accessory_access',
-        'has_mobile_access',
+        'shop_id',
     ];
 
     /**
@@ -46,7 +46,6 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at'    => 'datetime',
         'has_accessory_access' => 'boolean',
-        'has_mobile_access'    => 'boolean',
     ];
 
     public function isAdmin(): bool
@@ -64,9 +63,23 @@ class User extends Authenticatable
         return $this->isAdmin() || (bool) $this->has_accessory_access;
     }
 
+    public function shop()
+    {
+        return $this->belongsTo(Shop::class);
+    }
+
+    /**
+     * True if this user has a Mobile shop assignment at all (admins bypass).
+     * Use canAccessShop() when checking a *specific* shop.
+     */
     public function hasMobileAccess(): bool
     {
-        return $this->isAdmin() || (bool) $this->has_mobile_access;
+        return $this->isAdmin() || !is_null($this->shop_id);
+    }
+
+    public function canAccessShop(int $shopId): bool
+    {
+        return $this->isAdmin() || $this->shop_id === $shopId;
     }
 
     public function hasPermission(string $permission): bool

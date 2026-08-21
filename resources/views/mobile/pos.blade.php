@@ -112,38 +112,15 @@
                 {{-- ===== LEFT COLUMN ===== --}}
                 <div class="col-lg-5">
 
-                    {{-- Customer / Vendor --}}
+                    {{-- Customer --}}
                     <div class="card shadow-sm mb-2">
                         <div class="card-header py-2 bg-white border-bottom">
-                            <span class="font-weight-bold" style="font-size:1rem;"><i class="fa fa-user text-secondary mr-1"></i> Customer / Vendor</span>
+                            <span class="font-weight-bold" style="font-size:1rem;"><i class="fa fa-user text-secondary mr-1"></i> Customer</span>
                         </div>
                         <div class="card-body p-2">
-                            <select name="vendor_id" id="vendor_id" class="form-control mb-1">
-                                <option value="">Walk-in Customer</option>
-                                @foreach($vendors as $vendor)
-                                <option value="{{ $vendor->id }}">{{ $vendor->name }}</option>
-                                @endforeach
-                            </select>
                             <input type="text" name="customer_name" id="customer_name" class="form-control mb-1" placeholder="Customer name (optional)">
-                            <div id="customer_mobile_row" style="display:none;">
-                                <input type="text" name="customer_mobile" id="customer_mobile" class="form-control mb-1" placeholder="Mobile: 923XXXXXXXXX">
-                            </div>
+                            <input type="text" name="customer_mobile" id="customer_mobile" class="form-control mb-1" placeholder="Mobile: 923XXXXXXXXX">
                             <textarea id="sale_comment" name="comment" rows="1" class="form-control" placeholder="Comment (optional)"></textarea>
-                        </div>
-                    </div>
-
-                    {{-- Vendor balance --}}
-                    <div id="vendor-extra-fields" style="display:none;">
-                        <div class="card shadow-sm mb-2 border-primary">
-                            <div class="card-body p-2">
-                                <div class="d-flex gap-2" style="gap:6px;">
-                                    <input type="number" min="0" name="pay_amount" id="pay_amount" class="form-control form-control-sm" placeholder="Pay amount">
-                                    <input type="text" id="vendor_balance" class="form-control form-control-sm font-weight-bold text-primary" placeholder="Balance" readonly>
-                                    <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-toggle="modal" data-target="#record-credit-modal" title="Record a payment/credit for this vendor without checking out a sale">
-                                        <i class="fa fa-money mr-1"></i> Record Credit
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -166,7 +143,7 @@
                                     <option value="">Select phone manually…</option>
                                     @foreach($units as $unit)
                                     <option value="{{ $unit->imei }}">
-                                        {{ $unit->imei }} — {{ $unit->mobile->name ?? '-' }} ({{ $unit->storage }}, {{ $unit->pta_status }})
+                                        {{ $unit->imei }} — {{ $unit->name }} ({{ $unit->storage }}, {{ $unit->pta_status }})
                                     </option>
                                     @endforeach
                                 </select>
@@ -183,12 +160,16 @@
                         window.unitData["{{ $unit->imei }}"] = {
                             id: {{ $unit->id }},
                             imei: "{{ $unit->imei }}",
-                            mobile_name: "{{ addslashes($unit->mobile->name ?? '') }}",
+                            mobile_name: "{{ addslashes($unit->name) }}",
                             storage: "{{ addslashes($unit->storage ?? '') }}",
                             pta_status: "{{ addslashes($unit->pta_status) }}",
                             price: {{ $unit->selling_price }}
                         };
                         @endforeach
+
+                        @if($prefillUnit)
+                        window.PREFILL_IMEI = "{{ $prefillUnit->imei }}";
+                        @endif
                     </script>
 
                 </div>{{-- /left --}}
@@ -324,7 +305,7 @@
                             <tr>
                                 <th>Sale #</th>
                                 <th>Date</th>
-                                <th>Customer / Vendor</th>
+                                <th>Customer</th>
                                 <th>Total</th>
                                 <th>Payments</th>
                                 <th>Items</th>
@@ -342,9 +323,7 @@
                                 <td>{{ $sale->id }}</td>
                                 <td>{{ \Carbon\Carbon::parse($sale->sale_date)->format('d M Y, H:i') }}</td>
                                 <td>
-                                    @if($sale->vendor)
-                                        <span class="badge badge-info">Vendor</span> {{ $sale->vendor->name }}
-                                    @elseif($sale->customer_name)
+                                    @if($sale->customer_name)
                                         <span class="badge badge-secondary">Customer</span> {{ $sale->customer_name }}
                                     @else
                                         <span class="text-muted">Walk-in</span>
@@ -376,7 +355,7 @@
                                 </td>
                                 <td>
                                     @foreach($sale->items as $item)
-                                    <div class="small">{{ $item->unit->mobile->name ?? '-' }} <span class="text-muted">(IMEI {{ $item->unit->imei ?? '-' }}, {{ number_format($item->price, 2) }})</span></div>
+                                    <div class="small">{{ $item->unit->name ?? '-' }} <span class="text-muted">(IMEI {{ $item->unit->imei ?? '-' }}, {{ number_format($item->price, 2) }})</span></div>
                                     @endforeach
                                 </td>
                                 <td class="small text-muted">{{ $sale->comment ?: '—' }}</td>
@@ -407,35 +386,6 @@
     </div>
     <button type="button" id="mobile-hold-btn" onclick="holdOrder()"><i class="fa fa-pause"></i></button>
     <button type="button" id="mobile-checkout-btn" onclick="checkoutSale()"><i class="fa fa-check-circle mr-1"></i> Checkout</button>
-</div>
-
-{{-- Record Credit Modal --}}
-<div class="modal fade" id="record-credit-modal" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title font-weight-bold"><i class="fa fa-money mr-1"></i> Record Credit for <span id="record-credit-vendor-name"></span></h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Amount</label>
-                    <input type="number" min="1" step="0.01" class="form-control" id="record-credit-amount" placeholder="Amount received/credited">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Description (optional)</label>
-                    <input type="text" class="form-control" id="record-credit-description" placeholder="e.g. Cash payment, easypaisa...">
-                </div>
-                <div id="record-credit-status" class="small text-muted"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-warning" data-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="record-credit-save-btn" onclick="recordVendorCredit()">
-                    <i class="fa fa-check-square-o mr-1"></i> Save
-                </button>
-            </div>
-        </div>
-    </div>
 </div>
 
 {{-- Return Modal --}}
@@ -503,10 +453,6 @@
         if (!db.objectStoreNames.contains('held_orders')) {
           db.createObjectStore('held_orders', { keyPath: 'id', autoIncrement: true });
         }
-        if (!db.objectStoreNames.contains('credits')) {
-          const c = db.createObjectStore('credits', { keyPath: 'id', autoIncrement: true });
-          c.createIndex('status', 'status', { unique: false });
-        }
       };
       req.onsuccess = e => { _idb = e.target.result; res(_idb); };
       req.onerror   = e => rej(e.target.error);
@@ -532,31 +478,6 @@
     }));
   }
 
-  function idbCreditAdd(payload) {
-    return idbOpen().then(db => new Promise((res, rej) => {
-      const r = db.transaction('credits', 'readwrite').objectStore('credits').add({ payload, queued_at: new Date().toISOString(), status: 'pending', error: null });
-      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-    }));
-  }
-  function idbCreditGetByStatus(status) {
-    return idbOpen().then(db => new Promise((res, rej) => {
-      const idx = db.transaction('credits', 'readonly').objectStore('credits').index('status');
-      const r = idx.getAll(status);
-      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
-    }));
-  }
-  function idbCreditSetStatus(id, status, error) {
-    return idbOpen().then(db => new Promise((res, rej) => {
-      const store = db.transaction('credits', 'readwrite').objectStore('credits');
-      const get = store.get(id);
-      get.onsuccess = () => {
-        const rec = get.result; rec.status = status; rec.error = error || null;
-        const put = store.put(rec);
-        put.onsuccess = () => res(); put.onerror = () => rej(put.error);
-      };
-      get.onerror = () => rej(get.error);
-    }));
-  }
 
   function idbGetByStatus(status) {
     return idbOpen().then(db => new Promise((res, rej) => {
@@ -652,7 +573,6 @@
   // =====================================================================
   let _syncSalesInProgress  = false;
   let _syncHeldInProgress   = false;
-  let _syncCreditsInProgress = false;
 
   async function syncOfflineSales() {
     if (_syncSalesInProgress) return;
@@ -723,7 +643,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
             body: JSON.stringify({
-              cart_items: order.cart_items, vendor_id: order.vendor_id || null,
+              cart_items: order.cart_items,
               customer_name: order.customer_name || null, customer_mobile: order.customer_mobile || null,
               comment: order.comment || null,
             }),
@@ -738,48 +658,11 @@
     } finally { _syncHeldInProgress = false; }
   }
 
-  async function syncOfflineCredits() {
-    if (_syncCreditsInProgress) return;
-    _syncCreditsInProgress = true;
-    try {
-      const pending = await idbCreditGetByStatus('pending');
-      if (!pending.length) return;
-
-      let csrf = '{{ csrf_token() }}';
-      try {
-        const tr = await fetch('/api/pos/token', { credentials: 'same-origin' });
-        const td = await tr.json();
-        if (td.csrf) csrf = td.csrf;
-      } catch(e) {}
-
-      let synced = 0, failed = 0;
-      for (const credit of pending) {
-        await idbCreditSetStatus(credit.id, 'syncing', null);
-        try {
-          const res  = await fetch('{{ route('mobile.creditAmount') }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
-            body: JSON.stringify(credit.payload)
-          });
-          const data = await res.json();
-          if (data.success) { await idbCreditSetStatus(credit.id, 'synced', null); synced++; }
-          else { await idbCreditSetStatus(credit.id, 'failed', data.message || 'Server error'); failed++; }
-        } catch(e) { await idbCreditSetStatus(credit.id, 'pending', null); break; }
-      }
-
-      if (synced > 0) {
-        showToast('✓ ' + synced + ' offline credit(s) synced!' + (failed ? ' ' + failed + ' failed.' : ''), 'success');
-        if (document.getElementById('vendor_id').value) $('#vendor_id').trigger('change');
-      } else if (failed > 0) { showToast(failed + ' offline credit(s) failed to sync.', 'danger'); }
-    } finally { _syncCreditsInProgress = false; }
-  }
-
   // =====================================================================
   // FORM HELPERS
   // =====================================================================
   function resetSaleForm() {
-    try { $('#vendor_id').val(null).trigger('change'); } catch(e) {}
-    ['customer_name', 'customer_mobile', 'sale_comment', 'pay_amount', 'vendor_balance', 'bank_reference'].forEach(id => {
+    ['customer_name', 'customer_mobile', 'sale_comment', 'bank_reference'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
@@ -812,7 +695,6 @@
   }
 
   function buildPayload() {
-    const vendor_id       = document.getElementById('vendor_id').value || null;
     const customer_name   = document.getElementById('customer_name').value || null;
     const customer_mobile = document.getElementById('customer_mobile')?.value || '';
     const comment         = (document.getElementById('sale_comment').value || '').trim() || null;
@@ -821,24 +703,16 @@
       const d = Math.min(Math.max(Number(it.discount) || 0, 0), p);
       return t + Math.max(p - d, 0);
     }, 0);
-    const pay_amount_el  = document.getElementById('pay_amount');
-    const raw_pay_amount = pay_amount_el ? parseFloat(pay_amount_el.value || '0') : 0;
     const methodInput    = document.querySelector('input[name="payment_method"]:checked');
     const method         = methodInput ? methodInput.value : 'counter';
     const bank_id        = document.getElementById('bank_id')?.value || '';
     const reference_no   = document.getElementById('bank_reference')?.value.trim() || '';
-    const payments = [];
-    if (vendor_id) {
-      if (raw_pay_amount > 0) {
-        payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(raw_pay_amount), reference_no: method === 'bank' ? (reference_no || null) : null });
-      }
-    } else {
-      payments.push({ method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(netTotal), reference_no: method === 'bank' ? (reference_no || null) : null });
-    }
+    const payments = [
+      { method: method === 'bank' ? 'bank' : 'counter', bank_id: method === 'bank' ? Number(bank_id) : null, amount: Number(netTotal), reference_no: method === 'bank' ? (reference_no || null) : null }
+    ];
     return {
       client_ref: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('cr_' + Date.now() + '_' + Math.random().toString(36).slice(2)),
-      vendor_id, customer_name, customer_mobile, comment,
-      pay_amount:     vendor_id ? Number(raw_pay_amount) : Number(netTotal),
+      customer_name, customer_mobile, comment,
       payment_method: method,
       bank_id:        method === 'bank' ? (bank_id ? Number(bank_id) : null) : null,
       reference_no:   method === 'bank' ? (reference_no || null) : null,
@@ -849,7 +723,7 @@
   }
 
   function validatePayload(p) {
-    if (p.payment_method === 'bank' && !p.bank_id && (!p.vendor_id || p.pay_amount > 0)) {
+    if (p.payment_method === 'bank' && !p.bank_id) {
       alert('Please select a bank for the bank payment.');
       return false;
     }
@@ -870,7 +744,6 @@
   // =====================================================================
   $(document).ready(function () {
     $('#manual_unit_select').select2({ placeholder: "Select a phone", allowClear: true, width: '100%' });
-    $('#vendor_id').select2({ placeholder: "Select a vendor", allowClear: true, width: '100%' });
 
     document.querySelectorAll('.payment-method-card').forEach(card => {
       card.addEventListener('click', function () {
@@ -882,46 +755,17 @@
       });
     });
 
-    $('#vendor_id').on('change', function () {
-      const vendorId    = $(this).val();
-      const extraFields  = document.getElementById('vendor-extra-fields');
-      const balanceInput = document.getElementById('vendor_balance');
-      const mobileRow    = document.getElementById('customer_mobile_row');
-      if (vendorId) {
-        extraFields.style.display = '';
-        mobileRow.style.display   = 'none';
-        document.getElementById('customer_mobile').value = '';
-        balanceInput.value = 'Loading…';
-        fetch(`/mobile/vendor-balance/${vendorId}`)
-          .then(r => r.json())
-          .then(d => { balanceInput.value = d.balance; })
-          .catch(() => { balanceInput.value = navigator.onLine ? 'Error' : 'Offline'; });
-      } else {
-        extraFields.style.display = 'none';
-        mobileRow.style.display   = '';
-        balanceInput.value = '';
-      }
-    });
-    $('#vendor_id').trigger('change');
-
     idbOpen().then(async () => {
       const stuck = await idbGetByStatus('syncing');
       for (const s of stuck) await idbSetStatus(s.id, 'pending', null);
 
-      const stuckCredits = await idbCreditGetByStatus('syncing');
-      for (const c of stuckCredits) await idbCreditSetStatus(c.id, 'pending', null);
-      if (navigator.onLine) syncOfflineCredits();
-
       updateOfflineUI();
     });
 
-    $('#record-credit-modal').on('show.bs.modal', function () {
-      const sel = document.getElementById('vendor_id');
-      const name = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-      document.getElementById('record-credit-vendor-name').textContent = name;
-    });
-
     refreshHeldBadge();
+
+    // Sell button on the Mobile Units page (/mobile/pos?add_unit=ID) prefills the cart.
+    if (window.PREFILL_IMEI) { addUnitToCart(window.PREFILL_IMEI); }
 
     if (navigator.storage && navigator.storage.persist) { navigator.storage.persist(); }
     if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(() => {}); }
@@ -937,7 +781,7 @@
     if (this.value.length > 12) this.value = this.value.slice(0, 12);
   });
 
-  window.addEventListener('online',  () => { updateOfflineUI(); syncOfflineSales(); syncHeldOrders(); syncOfflineCredits(); });
+  window.addEventListener('online',  () => { updateOfflineUI(); syncOfflineSales(); syncHeldOrders(); });
   window.addEventListener('offline', () => { updateOfflineUI(); });
 
   // =====================================================================
@@ -1032,7 +876,6 @@
   async function holdOrder() {
     if (!cart.length) return alert('Cart is empty — nothing to hold!');
 
-    const vendor_id       = document.getElementById('vendor_id').value || null;
     const customer_name   = (document.getElementById('customer_name').value || '').trim() || null;
     const customer_mobile = document.getElementById('customer_mobile')?.value || null;
     const comment         = (document.getElementById('sale_comment').value || '').trim() || null;
@@ -1045,7 +888,7 @@
     btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> Holding…';
 
     const doHoldOffline = async () => {
-      await idbHeldAdd({ cart_items, vendor_id, customer_name, customer_mobile, comment });
+      await idbHeldAdd({ cart_items, customer_name, customer_mobile, comment });
       cart = []; renderCart(); resetSaleForm();
       await refreshHeldBadge();
       showToast('Order held offline! Will sync when internet returns.', 'warning');
@@ -1058,7 +901,7 @@
         const res  = await fetch('{{ route('mobile.pos.hold') }}', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-          body: JSON.stringify({ cart_items, vendor_id, customer_name, customer_mobile, comment }),
+          body: JSON.stringify({ cart_items, customer_name, customer_mobile, comment }),
         });
         const data = await res.json();
         if (data.success) {
@@ -1077,73 +920,6 @@
       btn.innerHTML = '<i class="fa fa-pause mr-1"></i> Hold Order';
       if (mBtn) { mBtn.disabled = false; mBtn.innerHTML = '<i class="fa fa-pause"></i>'; }
     }
-  }
-
-  async function recordVendorCredit() {
-    const vendor_id = document.getElementById('vendor_id').value;
-    if (!vendor_id) return;
-
-    const amountInput = document.getElementById('record-credit-amount');
-    const amount       = Number(amountInput.value);
-    const description  = (document.getElementById('record-credit-description').value || '').trim() || null;
-    const statusEl      = document.getElementById('record-credit-status');
-
-    if (!amount || amount <= 0) {
-      statusEl.className = 'small text-danger';
-      statusEl.textContent = 'Enter a valid amount.';
-      return;
-    }
-
-    const payload = { vendor_id, amount, description };
-    const btn = document.getElementById('record-credit-save-btn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i> Saving…';
-    statusEl.className = 'small text-muted';
-    statusEl.textContent = '';
-
-    const doQueueOffline = async () => {
-      await idbCreditAdd(payload);
-      statusEl.className = 'small text-warning';
-      showToast('Credit queued offline — will sync when internet returns.', 'warning');
-      closeRecordCreditModal();
-    };
-
-    try {
-      if (!navigator.onLine) {
-        await doQueueOffline();
-      } else {
-        const res = await fetch('{{ route('mobile.creditAmount') }}', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (data.success) {
-          showToast('Credit recorded for vendor.', 'success');
-          $('#vendor_id').trigger('change');
-          closeRecordCreditModal();
-        } else {
-          statusEl.className = 'small text-danger';
-          statusEl.textContent = data.message || 'Failed to record credit.';
-        }
-      }
-    } catch (e) {
-      try { await doQueueOffline(); }
-      catch (e2) {
-        statusEl.className = 'small text-danger';
-        statusEl.textContent = 'Failed to record credit: ' + e2.message;
-      }
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fa fa-check-square-o mr-1"></i> Save';
-    }
-  }
-
-  function closeRecordCreditModal() {
-    $('#record-credit-modal').modal('hide');
-    document.getElementById('record-credit-amount').value = '';
-    document.getElementById('record-credit-description').value = '';
-    document.getElementById('record-credit-status').textContent = '';
   }
 
   async function refreshHeldBadge() {
@@ -1178,7 +954,7 @@
           _key: 'local:' + o.id, _src: 'local', is_offline: true,
           held_at: heldAt, item_count: items.length, total: total.toFixed(2),
           customer: o.customer_name || 'Walk-in', comment: o.comment,
-          cart_items: o.cart_items, vendor_id: o.vendor_id,
+          cart_items: o.cart_items,
           customer_name: o.customer_name, customer_mobile: o.customer_mobile,
         });
       });
@@ -1254,13 +1030,8 @@
     cart.forEach(i => removeUnitFromDropdown(i.imei));
     renderCart();
 
-    if (order.vendor_id) {
-      try { $('#vendor_id').val(order.vendor_id).trigger('change'); } catch(e) {}
-    } else {
-      try { $('#vendor_id').val(null).trigger('change'); } catch(e) {}
-      if (order.customer_name)   document.getElementById('customer_name').value   = order.customer_name;
-      if (order.customer_mobile) document.getElementById('customer_mobile').value = order.customer_mobile;
-    }
+    if (order.customer_name)   document.getElementById('customer_name').value   = order.customer_name;
+    if (order.customer_mobile) document.getElementById('customer_mobile').value = order.customer_mobile;
     if (order.comment) document.getElementById('sale_comment').value = order.comment;
 
     await deleteHeldOrder(key, true);

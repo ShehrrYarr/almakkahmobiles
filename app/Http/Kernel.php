@@ -67,5 +67,6 @@ class Kernel extends HttpKernel
         'role'                => \App\Http\Middleware\CheckRole::class,
         'permission'          => \App\Http\Middleware\CheckPermission::class,
         'section'             => \App\Http\Middleware\CheckSection::class,
+        'shop.context'        => \App\Http\Middleware\EnsureShopContext::class,
     ];
 }

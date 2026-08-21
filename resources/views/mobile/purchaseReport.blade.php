@@ -98,13 +98,6 @@
                     <div>
                         <input type="date" class="form-control" name="end_date" value="{{ $end }}" style="max-width: 180px;">
                     </div>
-                    <div>
-                        <select id="vendor_filter" name="vendor_id" class="form-control" style="min-width: 240px;">
-                            @if($vendorId)
-                            <option value="{{ $vendorId }}" selected>{{ optional($vendors->firstWhere('id', $vendorId))->name }}</option>
-                            @endif
-                        </select>
-                    </div>
                     <button type="submit" class="btn btn-primary">Filter</button>
                     <a href="{{ route('mobile.purchase.report') }}" class="btn btn-secondary">Reset</a>
                 </form>
@@ -131,24 +124,20 @@
                                     <th>Purchase Date</th>
                                     <th>Photos</th>
                                     <th>Name</th>
-                                    <th>Company</th>
-                                    <th>Condition</th>
                                     <th>IMEI</th>
+                                    <th>IMEI 2</th>
                                     <th>Storage</th>
                                     <th>PTA</th>
+                                    <th>Box</th>
                                     <th>Purchase Price</th>
                                     <th>Selling Price</th>
-                                    <th>Vendor</th>
-                                    <th>Purchase Paid</th>
-                                    <th>Purchase Owed</th>
+                                    <th>Bought From</th>
+                                    <th>Seller Phone</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($units as $unit)
-                                @php
-                                $batch = $unit->purchase_batch ? $batchTotals->get($unit->purchase_batch) : null;
-                                @endphp
                                 <tr>
                                     <td>{{ \Carbon\Carbon::parse($unit->purchase_date)->format('d M Y') }}</td>
                                     <td>
@@ -172,27 +161,16 @@
                                         <span class="text-muted">No photos</span>
                                         @endif
                                     </td>
-                                    <td>{{ $unit->mobile->name ?? '-' }}</td>
-                                    <td>{{ $unit->mobile->company->name ?? '-' }}</td>
-                                    <td>{{ $unit->mobile->group->name ?? '-' }}</td>
+                                    <td>{{ $unit->name }}</td>
                                     <td>{{ $unit->imei }}</td>
+                                    <td>{{ $unit->imei2 ?: '-' }}</td>
                                     <td>{{ $unit->storage ?: '-' }}</td>
                                     <td>{{ $unit->pta_status }}</td>
+                                    <td>{{ $unit->has_box ? 'Yes' : 'No' }}</td>
                                     <td>Rs. {{ number_format($unit->purchase_price, 2) }}</td>
                                     <td>Rs. {{ number_format($unit->selling_price, 2) }}</td>
-                                    <td>{{ $unit->vendor->name ?? '-' }}</td>
-                                    @if($batch)
-                                    <td>Rs. {{ number_format($batch->total_paid, 2) }}</td>
-                                    <td>
-                                        @php $owed = max(0, $batch->total_credit - $batch->total_paid); @endphp
-                                        <span class="{{ $owed > 0 ? 'text-danger' : 'text-success' }}">
-                                            Rs. {{ number_format($owed, 2) }}
-                                        </span>
-                                    </td>
-                                    @else
-                                    <td class="text-muted">N/A</td>
-                                    <td class="text-muted">N/A</td>
-                                    @endif
+                                    <td>{{ $unit->seller_name }}</td>
+                                    <td>{{ $unit->seller_phone ?: '-' }}</td>
                                     <td>
                                         @if($unit->status === 'sold')
                                         <span class="badge badge-secondary">Sold</span>
@@ -203,14 +181,11 @@
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="14" class="text-center">No purchases found.</td>
+                                    <td colspan="12" class="text-center">No purchases found.</td>
                                 </tr>
                                 @endforelse
                             </tbody>
                         </table>
-                    </div>
-                    <div class="card-body">
-                        <small class="text-muted">"Purchase Paid/Owed" reflects the whole purchase submission this phone was part of (a vendor payment may be split across several IMEIs bought together), not a per-phone payment.</small>
                     </div>
                 </div>
             </div>
@@ -278,18 +253,6 @@
     });
 
     $(document).ready(function () {
-        $('#vendor_filter').select2({
-            theme: 'bootstrap4', width: '100%', placeholder: 'All Vendors', allowClear: true,
-            ajax: {
-                url: '{{ route('mobile.vendors.search') }}',
-                dataType: 'json', delay: 200,
-                data: params => ({ q: params.term || '' }),
-                processResults: data => ({ results: data }),
-                cache: true
-            },
-            minimumInputLength: 0
-        });
-
         $('#mobilePurchaseReportTable').DataTable({ order: [[0, 'desc']] });
     });
 </script>

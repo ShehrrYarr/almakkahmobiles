@@ -59,7 +59,7 @@
                                 <tr>
                                     <th>Sale #</th>
                                     <th>Date</th>
-                                    <th>Customer/Vendor</th>
+                                    <th>Customer</th>
                                     <th>Total</th>
                                     <th>Paid Amount</th>
                                     <th>Items</th>
@@ -75,10 +75,8 @@
                                     <td>{{ $sale->id }}</td>
                                     <td>{{ \Carbon\Carbon::parse($sale->sale_date)->format('d M Y, H:i') }}</td>
                                     <td>
-                                        @if($sale->vendor)
-                                        Vendor: {{ $sale->vendor->name }}
-                                        @elseif($sale->customer_name)
-                                        Customer: {{ $sale->customer_name }}
+                                        @if($sale->customer_name)
+                                        {{ $sale->customer_name }}
                                         @else
                                         Walk-in
                                         @endif
@@ -92,18 +90,14 @@
                                         @endif
                                     </td>
                                     <td>
-                                        @if($sale->vendor)
-                                        Rs. {{ number_format($sale->pay_amount ?? 0, 2) }}
-                                        @else
                                         Rs. {{ number_format($sale->total_amount, 2) }}
-                                        @endif
                                     </td>
                                     <td>
                                         <ul style="list-style:none; margin:0; padding:0;">
                                             @foreach($sale->items as $item)
                                             @php $returned = $item->returnItems->isNotEmpty(); @endphp
                                             <li class="{{ $returned ? 'text-muted' : '' }}" style="{{ $returned ? 'text-decoration:line-through;' : '' }}">
-                                                {{ $item->unit->mobile->name ?? '-' }}
+                                                {{ $item->unit->name ?? '-' }}
                                                 <span class="text-muted">(IMEI {{ $item->unit->imei ?? '-' }}, Rs. {{ number_format($item->price, 2) }})</span>
                                                 @if($returned)
                                                 <span class="badge badge-danger">Returned</span>

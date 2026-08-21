@@ -101,16 +101,17 @@
                                     <th>Purchase Date</th>
                                     <th>Photos</th>
                                     <th>Name</th>
-                                    <th>Company</th>
-                                    <th>Condition</th>
                                     <th>IMEI</th>
+                                    <th>IMEI 2</th>
                                     <th>Storage</th>
                                     <th>PTA</th>
+                                    <th>Box</th>
                                     <th>Battery</th>
                                     <th>Purchase Price</th>
                                     <th>Selling Price</th>
-                                    <th>Vendor</th>
+                                    <th>Bought From</th>
                                     <th>Status</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -138,21 +139,30 @@
                                         <span class="text-muted">No photos</span>
                                         @endif
                                     </td>
-                                    <td>{{ $unit->mobile->name ?? '-' }}</td>
-                                    <td>{{ $unit->mobile->company->name ?? '-' }}</td>
-                                    <td>{{ $unit->mobile->group->name ?? '-' }}</td>
+                                    <td>{{ $unit->name }}</td>
                                     <td>{{ $unit->imei }}</td>
+                                    <td>{{ $unit->imei2 ?: '-' }}</td>
                                     <td>{{ $unit->storage ?: '-' }}</td>
                                     <td>{{ $unit->pta_status }}</td>
+                                    <td>{{ $unit->has_box ? 'Yes' : 'No' }}</td>
                                     <td>{{ $unit->battery ?: '-' }}{{ $unit->battery_cycle ? ' ('.$unit->battery_cycle.' cycles)' : '' }}</td>
                                     <td>Rs. {{ number_format($unit->purchase_price, 2) }}</td>
                                     <td>Rs. {{ number_format($unit->selling_price, 2) }}</td>
-                                    <td>{{ $unit->vendor->name ?? '-' }}</td>
+                                    <td>{{ $unit->seller_name }}{{ $unit->seller_phone ? ' ('.$unit->seller_phone.')' : '' }}</td>
                                     <td>
                                         @if($unit->status === 'sold')
                                         <span class="badge badge-secondary">Sold</span>
                                         @else
                                         <span class="badge badge-success">In Stock</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($unit->status === 'in_stock')
+                                        <a href="{{ route('mobile.pos', ['add_unit' => $unit->id]) }}" class="btn btn-sm btn-success">
+                                            <i class="fa fa-cart-plus mr-1"></i> Sell
+                                        </a>
+                                        @else
+                                        <span class="text-muted">—</span>
                                         @endif
                                     </td>
                                 </tr>

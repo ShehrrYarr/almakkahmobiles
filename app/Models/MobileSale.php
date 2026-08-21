@@ -7,13 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 class MobileSale extends Model
 {
     protected $fillable = [
-        'client_ref', 'mobile_vendor_id', 'customer_name', 'customer_mobile',
+        'shop_id', 'client_ref', 'customer_name', 'customer_mobile',
         'total_amount', 'discount_amount', 'pay_amount', 'user_id', 'comment', 'sale_date',
     ];
 
-    public function vendor()
+    public function shop()
     {
-        return $this->belongsTo(MobileVendor::class, 'mobile_vendor_id');
+        return $this->belongsTo(Shop::class);
     }
 
     public function user()

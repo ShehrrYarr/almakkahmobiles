@@ -117,88 +117,33 @@ public function index()
         ->orderByDesc('created_at')
         ->get();
 
-    // ===================== MOBILE STATS =====================
-    $totalMobileCount       = \App\Models\MobileUnit::where('status', 'in_stock')->count();
-    $totalSoldMobiles       = \App\Models\MobileUnit::where('status', 'sold')->count();
-    $totalMobileSalesCount  = \App\Models\MobileSale::count();
-    $totalMobileReturnsCount = \App\Models\MobileSaleReturn::count();
+    // ===================== MOBILE STATS (current shop only) =====================
+    $currentShopId = session('current_shop_id');
+    $currentShop   = $currentShopId ? \App\Models\Shop::find($currentShopId) : null;
 
-    $totalMobileCost       = (float) \App\Models\MobileUnit::where('status', 'in_stock')->sum('purchase_price');
-    $totalSoldMobileAmount = (float) \App\Models\MobileSaleItem::sum('price');
-    $totalMobileSalesAmount = (float) \App\Models\MobileSale::sum('total_amount');
+    // Shops this user can enter — used for a shop picker when no shop is active yet.
+    $userShops = auth()->user()->isAdmin()
+        ? \App\Models\Shop::where('is_active', true)->orderBy('name')->get()
+        : \App\Models\Shop::where('id', auth()->user()->shop_id)->where('is_active', true)->get();
 
-    // Total Receivable from Mobile Vendors
-    $mobileVendorReceivables = \DB::table('mobile_accounts')
-        ->select(
-            'mobile_vendor_id',
-            \DB::raw('SUM(debit) AS total_debit'),
-            \DB::raw('SUM(credit) AS total_credit')
-        )
-        ->whereNotNull('mobile_vendor_id')
-        ->groupBy('mobile_vendor_id')
-        ->get();
+    $totalMobileCount        = 0;
+    $totalSoldMobiles        = 0;
+    $totalMobileSalesCount   = 0;
+    $totalMobileReturnsCount = 0;
+    $totalMobileCost         = 0.0;
+    $totalSoldMobileAmount   = 0.0;
+    $totalMobileSalesAmount  = 0.0;
 
-    $totalMobileReceivable = $mobileVendorReceivables->reduce(function ($carry, $vendor) {
-        $balance = $vendor->total_debit - $vendor->total_credit;
-        return $balance > 0 ? $carry + $balance : $carry;
-    }, 0);
+    if ($currentShop) {
+        $totalMobileCount       = \App\Models\MobileUnit::where('shop_id', $currentShopId)->where('status', 'in_stock')->count();
+        $totalSoldMobiles       = \App\Models\MobileUnit::where('shop_id', $currentShopId)->where('status', 'sold')->count();
+        $totalMobileSalesCount  = \App\Models\MobileSale::where('shop_id', $currentShopId)->count();
+        $totalMobileReturnsCount = \App\Models\MobileSaleReturn::whereHas('sale', fn ($q) => $q->where('shop_id', $currentShopId))->count();
 
-    // ----- Mobile low stock with company/condition -----
-    $lowStockMobiles = \App\Models\Mobile::with(['units', 'company', 'group'])
-        ->get()
-        ->filter(function ($mobile) {
-            $totalStock = $mobile->units->where('status', 'in_stock')->count();
-            return $totalStock < $mobile->min_qty;
-        })
-        ->map(function ($mobile) {
-            return [
-                'id' => $mobile->id,
-                'name' => $mobile->name,
-                'min_qty' => (int) $mobile->min_qty,
-                'stock' => (int) $mobile->units->where('status', 'in_stock')->count(),
-                'company_id' => optional($mobile->company)->id,
-                'company' => optional($mobile->company)->name ?? '-',
-                'group_id' => optional($mobile->group)->id,
-                'group' => optional($mobile->group)->name ?? '-',
-            ];
-        })
-        ->values();
-
-    $lowStockMobileCompanies = $lowStockMobiles
-        ->groupBy('company_id')
-        ->map(function ($items, $companyId) {
-            return [
-                'id' => $companyId,
-                'name' => $items->first()['company'] ?? '-',
-                'count' => $items->count(),
-            ];
-        })
-        ->values()
-        ->sortBy('name')
-        ->values();
-
-    $lowStockMobileGroups = $lowStockMobiles
-        ->groupBy('group_id')
-        ->map(function ($items, $groupId) {
-            return [
-                'id' => $groupId,
-                'name' => $items->first()['group'] ?? '-',
-                'count' => $items->count(),
-            ];
-        })
-        ->values()
-        ->sortBy('name')
-        ->values();
-
-    // Today's mobile debit/credit
-    $todayMobileTotalDebit  = \App\Models\MobileAccount::whereDate('created_at', today())->sum('debit');
-    $todayMobileTotalCredit = \App\Models\MobileAccount::whereDate('created_at', today())->sum('credit');
-
-    $allMobileCreditEntries = \App\Models\MobileAccount::with('vendor', 'creator')
-        ->whereDate('created_at', today())
-        ->where('credit', '>', 0)
-        ->orderByDesc('created_at')
-        ->get();
+        $totalMobileCost       = (float) \App\Models\MobileUnit::where('shop_id', $currentShopId)->where('status', 'in_stock')->sum('purchase_price');
+        $totalSoldMobileAmount = (float) \App\Models\MobileSaleItem::whereHas('sale', fn ($q) => $q->where('shop_id', $currentShopId))->sum('price');
+        $totalMobileSalesAmount = (float) \App\Models\MobileSale::where('shop_id', $currentShopId)->sum('total_amount');
+    }
 
     return view('user_dashboard', compact(
         'totalAccessoryCount',
@@ -217,20 +162,15 @@ public function index()
         'todayTotalDebit',
         'todayTotalCredit',
         'allCreditEntries',
+        'currentShop',
+        'userShops',
         'totalMobileCount',
         'totalSoldMobiles',
         'totalMobileSalesCount',
         'totalMobileReturnsCount',
         'totalMobileCost',
         'totalSoldMobileAmount',
-        'totalMobileSalesAmount',
-        'totalMobileReceivable',
-        'lowStockMobiles',
-        'lowStockMobileCompanies',
-        'lowStockMobileGroups',
-        'todayMobileTotalDebit',
-        'todayMobileTotalCredit',
-        'allMobileCreditEntries'
+        'totalMobileSalesAmount'
     ));
 }
 
@@ -339,8 +279,9 @@ public function index()
 
     public function showUsers()
     {
-        $users = User::with('permissions')->get();
-        return view('showUsers', compact('users'));
+        $users = User::with(['permissions', 'shop'])->get();
+        $shops = \App\Models\Shop::orderBy('name')->get();
+        return view('showUsers', compact('users', 'shops'));
     }
 
 
@@ -353,7 +294,7 @@ public function index()
             'password' => 'required|string|min:6',
             'role'     => 'required|in:admin,salesman',
             'has_accessory_access' => 'nullable|boolean',
-            'has_mobile_access'    => 'nullable|boolean',
+            'shop_id'              => 'nullable|exists:shops,id',
         ]);
 
         $user = User::create([
@@ -363,7 +304,7 @@ public function index()
             'password_text' => $request->password,
             'role'          => $request->role,
             'has_accessory_access' => $request->role === 'admin' ? true : $request->boolean('has_accessory_access'),
-            'has_mobile_access'    => $request->role === 'admin' ? true : $request->boolean('has_mobile_access'),
+            'shop_id'              => $request->role === 'admin' ? null : $request->shop_id,
         ]);
 
         if ($request->role === 'salesman') {
@@ -396,7 +337,7 @@ public function index()
             'is_active' => 'nullable|boolean',
             'role'      => 'required|in:admin,salesman',
             'has_accessory_access' => 'nullable|boolean',
-            'has_mobile_access'    => 'nullable|boolean',
+            'shop_id'              => 'nullable|exists:shops,id',
         ]);
 
         $user = User::findOrFail($request->id);
@@ -409,7 +350,7 @@ public function index()
             'is_active'     => $request->is_active,
             'role'          => $request->role,
             'has_accessory_access' => $request->role === 'admin' ? true : $request->boolean('has_accessory_access'),
-            'has_mobile_access'    => $request->role === 'admin' ? true : $request->boolean('has_mobile_access'),
+            'shop_id'              => $request->role === 'admin' ? null : $request->shop_id,
         ]);
 
         if ($request->role === 'salesman') {
