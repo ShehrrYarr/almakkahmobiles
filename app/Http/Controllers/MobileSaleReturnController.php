@@ -23,7 +23,11 @@ class MobileSaleReturnController extends Controller
      */
     public function itemsForSale($saleId)
     {
-        $sale = MobileSale::with('items.unit')->where('shop_id', session('current_shop_id'))->findOrFail($saleId);
+        $sale = MobileSale::with('items.unit')->where('shop_id', session('current_shop_id'))->find($saleId);
+
+        if (!$sale) {
+            return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
+        }
 
         $items = $sale->items->map(function ($item) {
             return [

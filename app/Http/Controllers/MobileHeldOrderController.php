@@ -71,11 +71,16 @@ class MobileHeldOrderController extends Controller
 
     public function destroy($id)
     {
-        MobileHeldOrder::where('id', $id)
+        $held = MobileHeldOrder::where('id', $id)
             ->where('shop_id', session('current_shop_id'))
             ->where('user_id', auth()->id())
-            ->firstOrFail()
-            ->delete();
+            ->first();
+
+        if (!$held) {
+            return response()->json(['success' => false, 'message' => 'Held order not found.'], 404);
+        }
+
+        $held->delete();
 
         return response()->json(['success' => true]);
     }

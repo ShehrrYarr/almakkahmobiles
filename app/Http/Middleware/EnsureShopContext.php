@@ -34,21 +34,35 @@ class EnsureShopContext
         }
 
         if (!$shopId) {
-            return redirect()->route('shops.index')
-                ->with('danger', 'Select a shop to continue.');
+            return $this->deny($request, $user, 'Select a shop to continue.');
         }
 
         $shop = Shop::find($shopId);
 
         if (!$shop || !$shop->is_active || !$user->canAccessShop($shop->id)) {
             session()->forget('current_shop_id');
-            return redirect()->route('shops.index')
-                ->with('danger', 'You do not have access to that shop.');
+            return $this->deny($request, $user, 'You do not have access to that shop.');
         }
 
         $request->attributes->set('currentShop', $shop);
         View::share('currentShop', $shop);
 
         return $next($request);
+    }
+
+    /**
+     * Admins without a shop selected belong on the shop picker; a
+     * non-admin shouldn't be sent there at all (role:admin would just
+     * bounce them again) — send them straight to their dashboard instead.
+     */
+    private function deny($request, $user, string $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['success' => false, 'message' => $message], 403);
+        }
+
+        $target = $user->isAdmin() ? redirect()->route('shops.index') : redirect()->route('user.index');
+
+        return $target->with('danger', $message);
     }
 }

@@ -92,8 +92,8 @@ class MobileSaleController extends Controller
         }
 
         $shopId = session('current_shop_id');
-        $customerName   = $data['customer_name']   ?: 'Walk In Customer';
-        $customerMobile = $data['customer_mobile'] ?: '00000000';
+        $customerName   = $data['customer_name']   ?? '' ?: 'Walk In Customer';
+        $customerMobile = $data['customer_mobile'] ?? '' ?: '00000000';
 
         try {
             $sale = \DB::transaction(function () use ($data, $shopId, $customerName, $customerMobile) {
