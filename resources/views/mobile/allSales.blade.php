@@ -63,6 +63,9 @@
                                     <th>Total</th>
                                     <th>Paid Amount</th>
                                     <th>Items</th>
+                                    @if (auth()->user()->isAdmin())
+                                    <th>Profit</th>
+                                    @endif
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -106,6 +109,21 @@
                                             @endforeach
                                         </ul>
                                     </td>
+                                    @if (auth()->user()->isAdmin())
+                                    <td>
+                                        <ul style="list-style:none; margin:0; padding:0;">
+                                            @foreach($sale->items as $item)
+                                            @php
+                                                $returned = $item->returnItems->isNotEmpty();
+                                                $profit = (float) $item->price - (float) ($item->unit->purchase_price ?? 0);
+                                            @endphp
+                                            <li class="{{ $returned ? 'text-muted' : '' }}" style="{{ $returned ? 'text-decoration:line-through;' : '' }}">
+                                                Rs. {{ number_format($profit, 2) }}
+                                            </li>
+                                            @endforeach
+                                        </ul>
+                                    </td>
+                                    @endif
                                     <td>
                                         <a class="btn btn-sm btn-outline-primary" target="_blank"
                                             href="{{ route('mobile.pos.invoice', $sale->id) }}">
