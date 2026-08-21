@@ -104,6 +104,7 @@
                                     <th>IMEI</th>
                                     <th>IMEI 2</th>
                                     <th>Storage</th>
+                                    <th>Color</th>
                                     <th>PTA</th>
                                     <th>Box</th>
                                     <th>Battery</th>
@@ -143,6 +144,7 @@
                                     <td>{{ $unit->imei }}</td>
                                     <td>{{ $unit->imei2 ?: '-' }}</td>
                                     <td>{{ $unit->storage ?: '-' }}</td>
+                                    <td>{{ $unit->color ?: '-' }}</td>
                                     <td>{{ $unit->pta_status }}</td>
                                     <td>{{ $unit->has_box ? 'Yes' : 'No' }}</td>
                                     <td>{{ $unit->battery ?: '-' }}{{ $unit->battery_cycle ? ' ('.$unit->battery_cycle.' cycles)' : '' }}</td>

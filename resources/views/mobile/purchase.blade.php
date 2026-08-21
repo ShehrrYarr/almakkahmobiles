@@ -77,15 +77,19 @@
                                 <input type="text" class="form-control" name="imei2" value="{{ old('imei2') }}">
                             </div>
 
-                            <div class="col-md-4 mb-2">
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label">Storage</label>
                                 <input type="text" class="form-control" name="storage" placeholder="e.g. 128GB" value="{{ old('storage') }}">
                             </div>
-                            <div class="col-md-4 mb-2">
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label">Color</label>
+                                <input type="text" class="form-control" name="color" placeholder="e.g. Midnight Black" value="{{ old('color') }}">
+                            </div>
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label">Battery Percentage (Optional)</label>
                                 <input type="text" class="form-control" name="battery" placeholder="e.g. 92%" value="{{ old('battery') }}">
                             </div>
-                            <div class="col-md-4 mb-2">
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label">Battery Cycle (Optional)</label>
                                 <input type="number" min="0" class="form-control" name="battery_cycle" value="{{ old('battery_cycle') }}">
                             </div>
