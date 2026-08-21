@@ -333,6 +333,10 @@
                                                         <a class="menu-item" href="/shops" data-i18n="1 columns">Manage
                                                                 Shops</a>
                                                 </li>
+                                                <li class="@if (\Request::is('shop-stats*')) active @endif">
+                                                        <a class="menu-item" href="/shop-stats" data-i18n="1 columns">Shop
+                                                                Stats</a>
+                                                </li>
                                                 <li
                                                         class="@if (\Request::is('send-message-to-customers')) active @endif">
                                                         <a class="menu-item" href="/send-message-to-customers"

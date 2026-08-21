@@ -301,6 +301,8 @@ Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function
     Route::get('/shops/{id}/edit', [\App\Http\Controllers\ShopController::class, 'edit'])->name('shops.edit');
     Route::put('/shops', [\App\Http\Controllers\ShopController::class, 'update'])->name('shops.update');
     Route::get('/shops/{id}/enter', [\App\Http\Controllers\ShopController::class, 'enter'])->name('shops.enter');
+    Route::get('/shop-stats', [\App\Http\Controllers\ShopController::class, 'stats'])->name('shops.stats');
+    Route::get('/shop-stats/{id}/sold-units', [\App\Http\Controllers\ShopController::class, 'soldUnits'])->name('shops.stats.sold');
 });
 
 //======================================================================
