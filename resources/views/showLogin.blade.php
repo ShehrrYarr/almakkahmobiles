@@ -30,10 +30,10 @@
 
                         <div class="card-body">
                             @php
-                                $restriction = \App\Models\LoginRestriction::latest()->first();
+                                $restriction = \App\Models\LoginRestriction::orderBy('id')->first();
                             @endphp
 
-                            @if(in_array(auth()->id(), [1, 2]))
+                            @if(auth()->user()->isAdmin())
                                 <form method="POST" action="{{ route('admin.updateLoginWindow') }}">
                                     @csrf
 

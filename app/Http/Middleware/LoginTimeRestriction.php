@@ -17,12 +17,12 @@ class LoginTimeRestriction
 
              if ($user->is_active == 0) {
             Auth::logout(); // Log the user out immediately if they're inactive
-            return redirect()->route('login')->withErrors([
+            return redirect('/')->withErrors([
                 'email' => 'Your account is inactive. Please contact support.',
             ]);
         }
         
-            $restriction = LoginRestriction::latest()->first();
+            $restriction = LoginRestriction::orderBy('id')->first();
 
             if ($restriction) {
                 $now = Carbon::now();
@@ -31,7 +31,7 @@ class LoginTimeRestriction
 
                 if (!$now->between($start, $end)) {
                     Auth::logout();
-                    return redirect()->route('login')->withErrors([
+                    return redirect('/')->withErrors([
                         'email' => 'Login is allowed only between ' . $start->format('h:i A') . ' and ' . $end->format('h:i A'),
                     ]);
                 }

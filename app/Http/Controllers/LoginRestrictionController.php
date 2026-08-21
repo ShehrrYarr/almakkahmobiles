@@ -83,8 +83,8 @@ class LoginRestrictionController extends Controller
 
     public function showLogin()
     {
-        if (!in_array(auth()->id(), [1, 2])) {
-            return redirect()->back()->with('danger', 'You cannot view this page.');
+        if (!auth()->user()->isAdmin()) {
+            return redirect()->route('user.index')->with('danger', 'You cannot view this page.');
         }
 
         return view('showLogin');
@@ -98,17 +98,20 @@ class LoginRestrictionController extends Controller
             'end_time' => 'required|date_format:H:i|after:start_time',
         ]);
 
-        // Check for existing login restriction
-        $restriction = LoginRestriction::latest()->first();
+        // Only one login-restriction row should ever exist. Order by id (not
+        // created_at) so this always targets the same row deterministically,
+        // and drop any accidental duplicates so a stale extra row can never
+        // shadow the one being edited here.
+        $restriction = LoginRestriction::orderBy('id')->first();
 
         if ($restriction) {
-            // Update the existing record
+            LoginRestriction::where('id', '!=', $restriction->id)->delete();
+
             $restriction->update([
                 'start_time' => $request->start_time,
                 'end_time' => $request->end_time,
             ]);
         } else {
-            // No record exists, create a new one
             LoginRestriction::create([
                 'start_time' => $request->start_time,
                 'end_time' => $request->end_time,

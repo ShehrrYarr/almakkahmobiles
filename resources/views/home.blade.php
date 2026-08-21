@@ -640,6 +640,12 @@
     <script src="homepage_assets/js/vendor/particles.min.js"></script>
     <script src="homepage_assets/js/main.js"></script>
 
+    @if ($errors->any())
+    <script>
+        $(function () { $('#login').modal('show'); });
+    </script>
+    @endif
+
 </body>
 
 </html>
