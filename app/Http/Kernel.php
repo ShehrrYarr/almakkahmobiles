@@ -66,5 +66,6 @@ class Kernel extends HttpKernel
         'login.time.restrict' => \App\Http\Middleware\LoginTimeRestriction::class,
         'role'                => \App\Http\Middleware\CheckRole::class,
         'permission'          => \App\Http\Middleware\CheckPermission::class,
+        'section'             => \App\Http\Middleware\CheckSection::class,
     ];
 }

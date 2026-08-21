@@ -142,6 +142,11 @@
 
                                 </li>
 
+                                @if(auth()->user()->hasAccessoryAccess())
+                                <li class=" navigation-header"><span>Accessory Section</span><i class=" feather icon-minus"
+                                                data-toggle="tooltip" data-placement="right"
+                                                data-original-title="Accessory Section"></i>
+                                </li>
                                 <li class=" nav-item"><a href="#"><i class="feather icon-book-open"></i><span
                                                         class="menu-title" data-i18n="Templates">Vendors</span></a>
                                         <ul class="menu-content">
@@ -234,6 +239,7 @@
 
                                         </ul>
                                 </li>
+                                @endif
                                 <li class=" nav-item"><a href="#"><i class="feather icon-tv"></i><span
                                                         class="menu-title" data-i18n="Templates">Manage Petty
                                                         Cash</span></a>
@@ -246,11 +252,85 @@
 
                                         </ul>
                                 </li>
-                                @php
-                                $userId = auth()->id();
-                                @endphp
+                                @if(auth()->user()->hasMobileAccess())
+                                <li class=" navigation-header"><span>Mobile Section</span><i class=" feather icon-minus"
+                                                data-toggle="tooltip" data-placement="right"
+                                                data-original-title="Mobile Section"></i>
+                                </li>
+                                <li class=" nav-item"><a href="#"><i class="feather icon-book-open"></i><span
+                                                        class="menu-title" data-i18n="Templates">Mobile Vendors</span></a>
+                                        <ul class="menu-content">
+                                                <li class="@if(\Request::is('mobile/showvendors')) active @endif"><a
+                                                                class="menu-item" href="/mobile/showvendors"
+                                                                data-i18n="1 columns">Manage Vendors</a>
+                                                </li>
+                                                <li class="@if(\Request::is('mobile/receivablevendors')) active @endif"><a
+                                                                class="menu-item" href="/mobile/receivablevendors"
+                                                                data-i18n="1 columns">Receivable Vendors</a>
+                                                </li>
+                                        </ul>
+                                </li>
+                                <li class=" nav-item"><a href="#"><i class="feather icon-tv"></i><span
+                                                        class="menu-title" data-i18n="Templates">Mobile Make
+                                                        Sale</span></a>
+                                        <ul class="menu-content">
+                                                <li class="@if (\Request::is('mobile/pos')) active @endif"><a
+                                                                class="menu-item" href="/mobile/pos"
+                                                                data-i18n="1 columns">POS</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/sales/all')) active @endif"><a
+                                                                class="menu-item" href="/mobile/sales/all"
+                                                                data-i18n="1 columns">All Sales</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/sales/refunds')) active @endif"><a
+                                                                class="menu-item" href="/mobile/sales/refunds"
+                                                                data-i18n="1 columns">Refund</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/sales/report')) active @endif"><a
+                                                                class="menu-item" href="/mobile/sales/report"
+                                                                data-i18n="1 columns">Sales Report</a>
+                                                </li>
+                                        </ul>
+                                </li>
+                                <li class=" nav-item"><a href="#"><i class="feather icon-tv"></i><span
+                                                        class="menu-title" data-i18n="Templates">Mobile
+                                                        Inventory</span></a>
+                                        <ul class="menu-content">
+                                                <li class="@if (\Request::is('mobile/inventory')) active @endif"><a
+                                                                class="menu-item" href="/mobile/inventory"
+                                                                data-i18n="1 columns">Manage Mobile</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/purchase')) active @endif"><a
+                                                                class="menu-item" href="/mobile/purchase"
+                                                                data-i18n="1 columns">Purchase Mobile</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/units')) active @endif"><a
+                                                                class="menu-item" href="/mobile/units"
+                                                                data-i18n="1 columns">All Mobile Units (Photos)</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/purchase/report')) active @endif"><a
+                                                                class="menu-item" href="/mobile/purchase/report"
+                                                                data-i18n="1 columns">Purchase Report</a>
+                                                </li>
+                                        </ul>
+                                </li>
+                                <li class=" nav-item"><a href="#"><i class="feather icon-tv"></i><span
+                                                        class="menu-title" data-i18n="Templates">Mobile Add
+                                                        values</span></a>
+                                        <ul class="menu-content">
+                                                <li class="@if (\Request::is('mobile/showcompanies')) active @endif"><a
+                                                                class="menu-item" href="/mobile/showcompanies"
+                                                                data-i18n="1 columns">Companies</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/showgroups')) active @endif"><a
+                                                                class="menu-item" href="/mobile/showgroups"
+                                                                data-i18n="1 columns">Conditions</a>
+                                                </li>
+                                        </ul>
+                                </li>
+                                @endif
 
-                                @if (in_array($userId, [1, 2]))
+                                @if (auth()->user()->isAdmin())
                                 <li class="nav-item">
                                         <a href="#"><i class="feather icon-tv"></i>
                                                 <span class="menu-title" data-i18n="Templates">Settings</span>
@@ -275,6 +355,10 @@
                                                 <li class="@if (\Request::is('banks')) active @endif">
                                                         <a class="menu-item" href="/banks" data-i18n="1 columns">Manage
                                                                 Banks</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/banks')) active @endif">
+                                                        <a class="menu-item" href="/mobile/banks" data-i18n="1 columns">Manage
+                                                                Mobile Banks</a>
                                                 </li>
                                                 <li
                                                         class="@if (\Request::is('send-message-to-customers')) active @endif">

@@ -17,6 +17,17 @@ use App\Http\Controllers\BankController;
 
 use App\Http\Controllers\SalesLiveController;
 
+use App\Http\Controllers\MobileCompanyController;
+use App\Http\Controllers\MobileGroupController;
+use App\Http\Controllers\MobileVendorController;
+use App\Http\Controllers\MobileBankController;
+use App\Http\Controllers\MobileController;
+use App\Http\Controllers\MobilePurchaseController;
+use App\Http\Controllers\MobileAccountController;
+use App\Http\Controllers\MobileSaleController;
+use App\Http\Controllers\MobileHeldOrderController;
+use App\Http\Controllers\MobileSaleReturnController;
+
 use Illuminate\Support\Facades\Route;
 use App\Models\User;
 
@@ -63,7 +74,7 @@ Route::get('/index', [App\Http\Controllers\UserController::class, 'index'])
 
 
 //vendor routes — require view_vendor_accounts permission
-Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts', 'section:accessory'])->group(function () {
     Route::get('/showvendors', [App\Http\Controllers\VendorController::class, 'showVendors'])->name('showvendors');
     Route::post('/vendors/store', [VendorController::class, 'storeVendor'])->name('storeVendor');
     Route::get('/editvendor/{id}', [App\Http\Controllers\VendorController::class, 'editVendor'])->name('editvendor');
@@ -75,7 +86,7 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accoun
     Route::get('/receivablevendors', [VendorController::class, 'listReceivables'])->name('receivablevendors');
     Route::get('/manual-credits', [AccountsController::class, 'manualCredits'])->name('manualCredits');
 });
-Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records', 'section:accessory'])->group(function () {
     Route::post('/deletevendor', [VendorController::class, 'destroyVendor'])->name('destroyVendor');
 });
 
@@ -85,7 +96,7 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])-
 
 
 //company & group routes — require manage_inventory permission
-Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory', 'section:accessory'])->group(function () {
     Route::get('/showcompanies', [App\Http\Controllers\CompanyController::class, 'showCompanies'])->name('showcompanies');
     Route::post('/company/store', [CompanyController::class, 'storeCompany'])->name('storeCompany');
     Route::get('/editcompany/{id}', [App\Http\Controllers\CompanyController::class, 'editCompany'])->name('editcompany');
@@ -96,7 +107,7 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory']
     Route::get('/editgroup/{id}', [App\Http\Controllers\GroupController::class, 'editGroup'])->name('editGroup');
     Route::put('/updategroup', [GroupController::class, 'updateGroup'])->name('updateGroup');
 });
-Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records', 'section:accessory'])->group(function () {
     Route::post('/deletecompany', [CompanyController::class, 'destroyCompany'])->name('destroyCompany');
     Route::post('/deletegroup', [GroupController::class, 'destroyGroup'])->name('destroyGroup');
 });
@@ -110,13 +121,13 @@ Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function
 
 
 //Accounts Routes
-Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts', 'section:accessory'])->group(function () {
     Route::get('/accounts/{id}', [AccountsController::class, 'showAccounts'])->name('showAccounts');
     Route::post('/credit', [AccountsController::class, 'creditAmount'])->name('creditAmount');
     Route::post('/debit', [AccountsController::class, 'debitAmount'])->name('debitAmount');
     Route::get('/getaccount/{id}', [App\Http\Controllers\AccountsController::class, 'getaccount'])->name('getaccount');
 });
-Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:delete_records', 'section:accessory'])->group(function () {
     Route::post('/deleteaccount', [AccountsController::class, 'destroyAccount'])->name('destroyAccount');
 });
 
@@ -152,18 +163,18 @@ Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function
 
 
 //Accessory Routes
-Route::get('/accessories', [AccessoryController::class, 'index'])->name('accessories.index')->middleware(['auth', 'login.time.restrict']);
-Route::get('/filteraccessory', [AccessoryController::class, 'filter'])->name('filter.index')->middleware(['auth', 'login.time.restrict']);
-Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory'])->group(function () {
+Route::get('/accessories', [AccessoryController::class, 'index'])->name('accessories.index')->middleware(['auth', 'login.time.restrict', 'section:accessory']);
+Route::get('/filteraccessory', [AccessoryController::class, 'filter'])->name('filter.index')->middleware(['auth', 'login.time.restrict', 'section:accessory']);
+Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory', 'section:accessory'])->group(function () {
     Route::post('/accessories', [AccessoryController::class, 'store'])->name('accessories.store');
     Route::get('/accessoryedit/{id}', [AccessoryController::class, 'edit'])->name('accessories.edit');
     Route::put('/accessories', [AccessoryController::class, 'update'])->name('accessories.update');
 });
 
 //Batch Routes
-Route::get('/batches', [AccessoryBatchController::class, 'index'])->name('batches.index')->middleware(['auth', 'login.time.restrict']);
-Route::get('/batches/{id}/barcode', [AccessoryBatchController::class, 'barcodeInfo'])->name('batches.barcode')->middleware(['auth', 'login.time.restrict']);
-Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory'])->group(function () {
+Route::get('/batches', [AccessoryBatchController::class, 'index'])->name('batches.index')->middleware(['auth', 'login.time.restrict', 'section:accessory']);
+Route::get('/batches/{id}/barcode', [AccessoryBatchController::class, 'barcodeInfo'])->name('batches.barcode')->middleware(['auth', 'login.time.restrict', 'section:accessory']);
+Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory', 'section:accessory'])->group(function () {
     Route::post('/batches', [AccessoryBatchController::class, 'store'])->name('batches.store');
 });
 
@@ -190,11 +201,11 @@ Route::get('/pos/invoice/{sale}', [SaleController::class, 'invoice'])->name('sal
 Route::post('/pos/hold', [\App\Http\Controllers\HeldOrderController::class, 'store'])->name('pos.hold')->middleware(['auth', 'login.time.restrict']);
 Route::get('/pos/held', [\App\Http\Controllers\HeldOrderController::class, 'index'])->name('pos.held')->middleware(['auth', 'login.time.restrict']);
 Route::delete('/pos/hold/{id}', [\App\Http\Controllers\HeldOrderController::class, 'destroy'])->name('pos.hold.destroy')->middleware(['auth', 'login.time.restrict']);
-Route::get('/reports/sales', [\App\Http\Controllers\SaleController::class, 'salesReport'])->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts']);
-Route::get('/accessoryreport', [SaleController::class, 'accessoryReport'])->name('saccessoryreport')->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts']);
+Route::get('/reports/sales', [\App\Http\Controllers\SaleController::class, 'salesReport'])->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts', 'section:accessory']);
+Route::get('/accessoryreport', [SaleController::class, 'accessoryReport'])->name('saccessoryreport')->middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts', 'section:accessory']);
 // routes/web.php
-Route::get('/api/vendor-balance/{id}', [VendorController::class, 'getVBalance']);
-Route::post('/api/pos/credit', [AccountsController::class, 'creditAmount'])->name('pos.credit')->middleware(['auth', 'login.time.restrict']);
+Route::get('/api/vendor-balance/{id}', [VendorController::class, 'getVBalance'])->middleware(['auth', 'section:accessory']);
+Route::post('/api/pos/credit', [AccountsController::class, 'creditAmount'])->name('pos.credit')->middleware(['auth', 'login.time.restrict', 'section:accessory']);
 
 
 //Profit only main account py show ho
@@ -217,21 +228,21 @@ Route::post('/send-message-to-customers', [CustomerMessageController::class, 'se
 Route::get('/loginhistory', [App\Http\Controllers\LoginHistoryController::class, 'getAllLogins'])->name('loginhistory')->middleware(['auth', 'login.time.restrict', 'role:admin']);
 
 // Return Routes
-Route::middleware(['auth', 'login.time.restrict', 'permission:process_returns'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:process_returns', 'section:accessory'])->group(function () {
     Route::post('/sales/{sale}/return', [SaleController::class, 'processReturn'])->name('sales.return');
     Route::get('/sales/refunds', [SaleController::class, 'refundsPage'])->name('sales.refunds');
 });
 
 // Route::post('/sales/{sale}/return', [SaleController::class, 'returnItems'])->name('sales.return');
 
-//Petty Cash Routes
+//Petty Cash Routes (shared — not tied to accessory or mobile specifically)
 Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts'])->group(function () {
     Route::get('/petty-cash', [PettyCashController::class, 'index'])->name('pettycash.index');
     Route::post('/petty-cash', [PettyCashController::class, 'store'])->name('pettycash.store');
 });
 
 //Bank Routes
-Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accounts', 'section:accessory'])->group(function () {
     Route::get('/banks', [BankController::class, 'index'])->name('banks');
     Route::post('/banks', [BankController::class, 'storeBank'])->name('storeBank');
     Route::get('/getbank/{id}', [BankController::class, 'getBank'])->name('getBank');
@@ -240,7 +251,7 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:view_vendor_accoun
 
 
 //Bulk Batch Store
-Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory', 'section:accessory'])->group(function () {
     Route::get('/batches/bulk', [AccessoryBatchController::class, 'bulkCreate'])->name('batches.bulk');
     Route::post('/batches/bulk', [AccessoryBatchController::class, 'bulkStore'])->name('batches.bulk.store');
 });
@@ -261,7 +272,7 @@ Route::get('/vendors/search', function (\Illuminate\Http\Request $request) {
         ->limit(20)
         ->get()
         ->map(fn($v) => ['id' => $v->id, 'text' => $v->name.' ('.$v->mobile_no.')']);
-})->name('vendors.search');
+})->name('vendors.search')->middleware(['auth', 'section:accessory']);
 
 
 
@@ -272,7 +283,7 @@ Route::get('/vendors/search', function (\Illuminate\Http\Request $request) {
 //Printer setting ------> Done
 //Comments in sales ------> Done
 
-Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function () {
+Route::middleware(['auth', 'login.time.restrict', 'role:admin', 'section:accessory'])->group(function () {
     Route::get('/sales/live', [SalesLiveController::class, 'index'])->name('sales.live.index');
     Route::get('/sales/live/feed', [SalesLiveController::class, 'feed'])->name('sales.live.feed');
 });
@@ -282,3 +293,74 @@ Route::middleware(['auth', 'login.time.restrict', 'role:admin'])->group(function
 //Press f2 to hide or show the purchase price , by default hidden rahy (******)
 //Claim ki functionality
 //Check lagana h agr koi item loss me jarha ho to usko alert dy 
+
+//======================================================================
+// MOBILE SECTION — parallel system for phones/IMEI-tracked inventory
+// All routes gated by 'section:mobile' (admin bypasses automatically).
+//======================================================================
+Route::middleware(['auth', 'login.time.restrict', 'section:mobile'])->group(function () {
+
+    // Companies (lookup)
+    Route::get('/mobile/showcompanies', [MobileCompanyController::class, 'showCompanies'])->name('mobile.showcompanies');
+    Route::post('/mobile/company/store', [MobileCompanyController::class, 'storeCompany'])->name('mobile.storeCompany');
+    Route::get('/mobile/editcompany/{id}', [MobileCompanyController::class, 'editCompany'])->name('mobile.editcompany');
+    Route::put('/mobile/updatecompany', [MobileCompanyController::class, 'updateCompany'])->name('mobile.updateCompany');
+    Route::post('/mobile/deletecompany', [MobileCompanyController::class, 'destroyCompany'])->name('mobile.destroyCompany');
+
+    // Groups (condition lookup)
+    Route::get('/mobile/showgroups', [MobileGroupController::class, 'showGroups'])->name('mobile.showgroups');
+    Route::post('/mobile/group/store', [MobileGroupController::class, 'storeGroup'])->name('mobile.storeGroup');
+    Route::get('/mobile/editgroup/{id}', [MobileGroupController::class, 'editGroup'])->name('mobile.editgroup');
+    Route::put('/mobile/updategroup', [MobileGroupController::class, 'updateGroup'])->name('mobile.updateGroup');
+    Route::post('/mobile/deletegroup', [MobileGroupController::class, 'destroyGroup'])->name('mobile.destroyGroup');
+
+    // Vendors
+    Route::get('/mobile/showvendors', [MobileVendorController::class, 'showVendors'])->name('mobile.showvendors');
+    Route::get('/mobile/vendors/search', [MobileVendorController::class, 'search'])->name('mobile.vendors.search');
+    Route::post('/mobile/vendors/store', [MobileVendorController::class, 'storeVendor'])->name('mobile.storeVendor');
+    Route::get('/mobile/editvendor/{id}', [MobileVendorController::class, 'editVendor'])->name('mobile.editvendor');
+    Route::put('/mobile/updatevendor', [MobileVendorController::class, 'updateVendor'])->name('mobile.updateVendor');
+    Route::post('/mobile/deletevendor', [MobileVendorController::class, 'destroyVendor'])->name('mobile.destroyVendor');
+    Route::get('/mobile/vendor-balance/{id}', [MobileVendorController::class, 'getBalance'])->name('mobile.vendor.balance');
+    Route::get('/mobile/receivablevendors', [MobileVendorController::class, 'listReceivables'])->name('mobile.receivablevendors');
+
+    // Banks
+    Route::get('/mobile/banks', [MobileBankController::class, 'index'])->name('mobile.banks.index');
+    Route::post('/mobile/banks', [MobileBankController::class, 'storeBank'])->name('mobile.storeBank');
+    Route::get('/mobile/getbank/{id}', [MobileBankController::class, 'getBank'])->name('mobile.getBank');
+    Route::put('/mobile/updatebank', [MobileBankController::class, 'updateBank'])->name('mobile.updateBank');
+
+    // Mobile catalog
+    Route::get('/mobile/inventory', [MobileController::class, 'index'])->name('mobile.index');
+    Route::get('/mobile/units', [MobileController::class, 'units'])->name('mobile.units');
+    Route::post('/mobile/store', [MobileController::class, 'store'])->name('mobile.store');
+    Route::get('/mobile/editmobile/{id}', [MobileController::class, 'edit'])->name('mobile.edit');
+    Route::put('/mobile/update', [MobileController::class, 'update'])->name('mobile.update');
+
+    // Purchase (serialized unit intake)
+    Route::get('/mobile/purchase', [MobilePurchaseController::class, 'create'])->name('mobile.purchase.create');
+    Route::post('/mobile/purchase', [MobilePurchaseController::class, 'bulkStore'])->name('mobile.purchase.store');
+    Route::get('/mobile/purchase/report', [MobilePurchaseController::class, 'report'])->name('mobile.purchase.report');
+
+    // Ledger
+    Route::get('/mobile/accounts/{id}', [MobileAccountController::class, 'showAccounts'])->name('mobile.showAccounts');
+    Route::post('/mobile/credit', [MobileAccountController::class, 'creditAmount'])->name('mobile.creditAmount');
+    Route::post('/mobile/debit', [MobileAccountController::class, 'debitAmount'])->name('mobile.debitAmount');
+    Route::get('/mobile/getaccount/{id}', [MobileAccountController::class, 'getaccount'])->name('mobile.getaccount');
+    Route::post('/mobile/deleteaccount', [MobileAccountController::class, 'destroyAccount'])->name('mobile.destroyAccount');
+
+    // POS
+    Route::get('/mobile/pos', [MobileSaleController::class, 'pos'])->name('mobile.pos');
+    Route::get('/mobile/sales/all', [MobileSaleController::class, 'allSales'])->name('mobile.sales.all');
+    Route::get('/mobile/sales/refunds', [MobileSaleController::class, 'refundsPage'])->name('mobile.sales.refunds');
+    Route::get('/mobile/sales/report', [MobileSaleController::class, 'salesReport'])->name('mobile.sales.report');
+    Route::post('/mobile/pos/checkout', [MobileSaleController::class, 'checkout'])->name('mobile.pos.checkout');
+    Route::get('/mobile/pos/invoice/{sale}', [MobileSaleController::class, 'invoice'])->name('mobile.pos.invoice');
+    Route::post('/mobile/pos/hold', [MobileHeldOrderController::class, 'store'])->name('mobile.pos.hold');
+    Route::get('/mobile/pos/held', [MobileHeldOrderController::class, 'index'])->name('mobile.pos.held');
+    Route::delete('/mobile/pos/hold/{id}', [MobileHeldOrderController::class, 'destroy'])->name('mobile.pos.hold.destroy');
+
+    // Returns
+    Route::get('/mobile/sales/{saleId}/return-items', [MobileSaleReturnController::class, 'itemsForSale'])->name('mobile.sales.return.items');
+    Route::post('/mobile/sales/{sale}/return', [MobileSaleReturnController::class, 'processReturn'])->name('mobile.sales.return');
+});

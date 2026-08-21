@@ -24,6 +24,8 @@ class User extends Authenticatable
         'password_text',
         'is_active',
         'role',
+        'has_accessory_access',
+        'has_mobile_access',
     ];
 
     /**
@@ -42,7 +44,9 @@ class User extends Authenticatable
      * @var array<string, string>
      */
     protected $casts = [
-        'email_verified_at' => 'datetime',
+        'email_verified_at'    => 'datetime',
+        'has_accessory_access' => 'boolean',
+        'has_mobile_access'    => 'boolean',
     ];
 
     public function isAdmin(): bool
@@ -53,6 +57,16 @@ class User extends Authenticatable
     public function isSalesman(): bool
     {
         return $this->role === 'salesman';
+    }
+
+    public function hasAccessoryAccess(): bool
+    {
+        return $this->isAdmin() || (bool) $this->has_accessory_access;
+    }
+
+    public function hasMobileAccess(): bool
+    {
+        return $this->isAdmin() || (bool) $this->has_mobile_access;
     }
 
     public function hasPermission(string $permission): bool

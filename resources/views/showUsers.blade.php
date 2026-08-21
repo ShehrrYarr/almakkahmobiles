@@ -33,7 +33,17 @@
                         </div>
 
                         <div id="add_permissions_section" class="mt-2 p-2 border rounded">
-                            <label class="form-label font-weight-bold">Permissions</label>
+                            <label class="form-label font-weight-bold">Section Access</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="has_accessory_access" value="1" id="add_access_accessory" checked>
+                                <label class="form-check-label" for="add_access_accessory">Accessory Section</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="has_mobile_access" value="1" id="add_access_mobile">
+                                <label class="form-check-label" for="add_access_mobile">Mobile Section</label>
+                            </div>
+
+                            <label class="form-label font-weight-bold mt-2">Permissions</label>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="permissions[]" value="approve_sales" id="add_perm_approve">
                                 <label class="form-check-label" for="add_perm_approve">Approve Sales</label>
@@ -120,6 +130,17 @@
 
                             {{-- Shown for salesman role --}}
                             <div id="edit_permissions_section">
+                                <label class="form-label font-weight-bold">Section Access</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="has_accessory_access" value="1" id="edit_access_accessory">
+                                    <label class="form-check-label" for="edit_access_accessory">Accessory Section</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="has_mobile_access" value="1" id="edit_access_mobile">
+                                    <label class="form-check-label" for="edit_access_mobile">Mobile Section</label>
+                                </div>
+
+                                <label class="form-label font-weight-bold mt-2">Permissions</label>
                                 <div class="form-check">
                                     <input class="form-check-input edit-perm" type="checkbox" name="permissions[]" value="approve_sales" id="edit_perm_approve">
                                     <label class="form-check-label" for="edit_perm_approve">Approve Sales</label>
@@ -191,6 +212,7 @@
                                         <th>Email</th>
                                         <th>Password</th>
                                         <th>Role</th>
+                                        <th>Section Access</th>
                                         <th>Permissions</th>
                                         <th>Active</th>
                                         <th>Action</th>
@@ -208,6 +230,21 @@
                                                     <span class="badge-admin">Admin</span>
                                                 @else
                                                     <span class="badge-salesman">Salesman</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if ($user->role === 'admin')
+                                                    <em class="text-muted">All</em>
+                                                @else
+                                                    @if ($user->has_accessory_access)
+                                                        <span class="badge badge-light d-inline-block mb-1">Accessory</span>
+                                                    @endif
+                                                    @if ($user->has_mobile_access)
+                                                        <span class="badge badge-light d-inline-block mb-1">Mobile</span>
+                                                    @endif
+                                                    @if (!$user->has_accessory_access && !$user->has_mobile_access)
+                                                        <em class="text-muted">None</em>
+                                                    @endif
                                                 @endif
                                             </td>
                                             <td>
@@ -268,6 +305,8 @@
                     $('#vpassword').val(u.password_text);
                     $('#is_active').val(u.is_active == 1 ? '1' : '0');
                     $('#edit_role').val(u.role);
+                    $('#edit_access_accessory').prop('checked', !!u.has_accessory_access);
+                    $('#edit_access_mobile').prop('checked', !!u.has_mobile_access);
 
                     // Show the correct permissions panel based on role
                     onEditRoleChange(u.role);

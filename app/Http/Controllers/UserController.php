@@ -117,6 +117,89 @@ public function index()
         ->orderByDesc('created_at')
         ->get();
 
+    // ===================== MOBILE STATS =====================
+    $totalMobileCount       = \App\Models\MobileUnit::where('status', 'in_stock')->count();
+    $totalSoldMobiles       = \App\Models\MobileUnit::where('status', 'sold')->count();
+    $totalMobileSalesCount  = \App\Models\MobileSale::count();
+    $totalMobileReturnsCount = \App\Models\MobileSaleReturn::count();
+
+    $totalMobileCost       = (float) \App\Models\MobileUnit::where('status', 'in_stock')->sum('purchase_price');
+    $totalSoldMobileAmount = (float) \App\Models\MobileSaleItem::sum('price');
+    $totalMobileSalesAmount = (float) \App\Models\MobileSale::sum('total_amount');
+
+    // Total Receivable from Mobile Vendors
+    $mobileVendorReceivables = \DB::table('mobile_accounts')
+        ->select(
+            'mobile_vendor_id',
+            \DB::raw('SUM(debit) AS total_debit'),
+            \DB::raw('SUM(credit) AS total_credit')
+        )
+        ->whereNotNull('mobile_vendor_id')
+        ->groupBy('mobile_vendor_id')
+        ->get();
+
+    $totalMobileReceivable = $mobileVendorReceivables->reduce(function ($carry, $vendor) {
+        $balance = $vendor->total_debit - $vendor->total_credit;
+        return $balance > 0 ? $carry + $balance : $carry;
+    }, 0);
+
+    // ----- Mobile low stock with company/condition -----
+    $lowStockMobiles = \App\Models\Mobile::with(['units', 'company', 'group'])
+        ->get()
+        ->filter(function ($mobile) {
+            $totalStock = $mobile->units->where('status', 'in_stock')->count();
+            return $totalStock < $mobile->min_qty;
+        })
+        ->map(function ($mobile) {
+            return [
+                'id' => $mobile->id,
+                'name' => $mobile->name,
+                'min_qty' => (int) $mobile->min_qty,
+                'stock' => (int) $mobile->units->where('status', 'in_stock')->count(),
+                'company_id' => optional($mobile->company)->id,
+                'company' => optional($mobile->company)->name ?? '-',
+                'group_id' => optional($mobile->group)->id,
+                'group' => optional($mobile->group)->name ?? '-',
+            ];
+        })
+        ->values();
+
+    $lowStockMobileCompanies = $lowStockMobiles
+        ->groupBy('company_id')
+        ->map(function ($items, $companyId) {
+            return [
+                'id' => $companyId,
+                'name' => $items->first()['company'] ?? '-',
+                'count' => $items->count(),
+            ];
+        })
+        ->values()
+        ->sortBy('name')
+        ->values();
+
+    $lowStockMobileGroups = $lowStockMobiles
+        ->groupBy('group_id')
+        ->map(function ($items, $groupId) {
+            return [
+                'id' => $groupId,
+                'name' => $items->first()['group'] ?? '-',
+                'count' => $items->count(),
+            ];
+        })
+        ->values()
+        ->sortBy('name')
+        ->values();
+
+    // Today's mobile debit/credit
+    $todayMobileTotalDebit  = \App\Models\MobileAccount::whereDate('created_at', today())->sum('debit');
+    $todayMobileTotalCredit = \App\Models\MobileAccount::whereDate('created_at', today())->sum('credit');
+
+    $allMobileCreditEntries = \App\Models\MobileAccount::with('vendor', 'creator')
+        ->whereDate('created_at', today())
+        ->where('credit', '>', 0)
+        ->orderByDesc('created_at')
+        ->get();
+
     return view('user_dashboard', compact(
         'totalAccessoryCount',
         'totalSoldAccessories',
@@ -133,7 +216,21 @@ public function index()
         'lowStockGroups',
         'todayTotalDebit',
         'todayTotalCredit',
-        'allCreditEntries'
+        'allCreditEntries',
+        'totalMobileCount',
+        'totalSoldMobiles',
+        'totalMobileSalesCount',
+        'totalMobileReturnsCount',
+        'totalMobileCost',
+        'totalSoldMobileAmount',
+        'totalMobileSalesAmount',
+        'totalMobileReceivable',
+        'lowStockMobiles',
+        'lowStockMobileCompanies',
+        'lowStockMobileGroups',
+        'todayMobileTotalDebit',
+        'todayMobileTotalCredit',
+        'allMobileCreditEntries'
     ));
 }
 
@@ -255,6 +352,8 @@ public function index()
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
             'role'     => 'required|in:admin,salesman',
+            'has_accessory_access' => 'nullable|boolean',
+            'has_mobile_access'    => 'nullable|boolean',
         ]);
 
         $user = User::create([
@@ -263,6 +362,8 @@ public function index()
             'password'      => Hash::make($request->password),
             'password_text' => $request->password,
             'role'          => $request->role,
+            'has_accessory_access' => $request->role === 'admin' ? true : $request->boolean('has_accessory_access'),
+            'has_mobile_access'    => $request->role === 'admin' ? true : $request->boolean('has_mobile_access'),
         ]);
 
         if ($request->role === 'salesman') {
@@ -294,6 +395,8 @@ public function index()
             'password'  => 'nullable|string|min:6',
             'is_active' => 'nullable|boolean',
             'role'      => 'required|in:admin,salesman',
+            'has_accessory_access' => 'nullable|boolean',
+            'has_mobile_access'    => 'nullable|boolean',
         ]);
 
         $user = User::findOrFail($request->id);
@@ -305,6 +408,8 @@ public function index()
             'password_text' => $request->password ?? $user->password_text,
             'is_active'     => $request->is_active,
             'role'          => $request->role,
+            'has_accessory_access' => $request->role === 'admin' ? true : $request->boolean('has_accessory_access'),
+            'has_mobile_access'    => $request->role === 'admin' ? true : $request->boolean('has_mobile_access'),
         ]);
 
         if ($request->role === 'salesman') {

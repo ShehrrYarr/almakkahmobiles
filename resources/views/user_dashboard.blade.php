@@ -18,6 +18,8 @@
                     style="width: 100%; max-height: 250px; object-fit: cover;">
             </div>
 
+            @if(auth()->user()->hasAccessoryAccess())
+            <h4 class="text-bold-600 mb-1"><i class="fa fa-puzzle-piece mr-1"></i> Accessory Overview</h4>
             <!-- Grouped multiple cards for statistics starts here -->
             <div class="row grouped-multiple-statistics-card">
                 <div class="col-12">
@@ -171,6 +173,7 @@
                 <span>All accessories are above their minimum quantity.</span>
             </div>
             @endif
+            @endif{{-- /hasAccessoryAccess --}}
 
             @if(auth()->user()->isAdmin())
             <div class="row grouped-multiple-statistics-card">
@@ -367,6 +370,271 @@
             </div>
             @endif
 
+            @if(auth()->user()->hasMobileAccess())
+            <h4 class="text-bold-600 mb-1 mt-2"><i class="fa fa-mobile mr-1"></i> Mobile Overview</h4>
+            <div class="row grouped-multiple-statistics-card">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+                                        <span class="card-icon primary d-flex justify-content-center mr-3">
+                                            <a href="/mobile/units"> <i
+                                                    class="icon p-1 fa fa-mobile customize-icon font-large-5 p-1"></i></a>
+                                        </span>
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">{{ $totalMobileCount }}</h3>
+                                            <p class="sub-heading">Available Mobiles</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div class="d-flex align-items-start border-right-blue-grey border-right-lighten-5">
+                                        <span class="card-icon success d-flex justify-content-center mr-3">
+                                            <a href="/mobile/sales/all"> <i
+                                                    class="icon p-1 fa fa-mobile customize-icon font-large-5 p-1"></i></a>
+                                        </span>
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">{{ $totalSoldMobiles }}</h3>
+                                            <p class="sub-heading">Sold Mobiles</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div class="d-flex align-items-start border-right-blue-grey border-right-lighten-5">
+                                        <span class="card-icon success d-flex justify-content-center mr-3">
+                                            <a href="/mobile/sales/all"> <i
+                                                    class="icon p-1 fa fa-cart-plus customize-icon font-large-5 p-1"></i></a>
+                                        </span>
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">{{ $totalMobileSalesCount }}</h3>
+                                            <p class="sub-heading">Total Mobile Sales</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div class="d-flex align-items-start border-right-blue-grey border-right-lighten-5">
+                                        <span class="card-icon success d-flex justify-content-center mr-3">
+                                            <a href="/mobile/sales/refunds"> <i
+                                                    class="icon p-1 fa fa-undo customize-icon font-large-5 p-1"></i></a>
+                                        </span>
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">{{ $totalMobileReturnsCount }}</h3>
+                                            <p class="sub-heading">Mobile Returns</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if($lowStockMobiles->count())
+            <div class="card border-0 shadow-sm mt-2 mb-2" id="lowStockMobileBox">
+                <div class="card-header d-flex align-items-center justify-content-between flex-wrap" style="background:#fff3cd; border-bottom:2px solid #ffc107; gap:10px;">
+                    <div class="d-flex align-items-center flex-wrap" style="gap:10px;">
+                        <h5 class="mb-0 font-weight-bold text-dark">
+                            <i class="fas fa-exclamation-triangle text-warning mr-1"></i>
+                            Low Stock Reminder (Mobiles)
+                            <span class="badge badge-danger ml-1">{{ $lowStockMobiles->count() }}</span>
+                        </h5>
+                        <small id="lowStockMobileFilterBadge" class="text-muted font-italic"></small>
+                    </div>
+
+                    <div class="d-flex align-items-center flex-wrap" style="gap:6px;">
+                        @if(isset($lowStockMobileCompanies) && $lowStockMobileCompanies->count())
+                        <span class="text-muted small font-weight-bold">Company:</span>
+                        @foreach($lowStockMobileCompanies as $c)
+                        <button type="button" class="btn btn-sm btn-outline-warning chip-mobile chip-mobile-company"
+                            data-type="company" data-id="{{ $c['id'] }}"
+                            style="border-radius:999px; font-size:0.78em; padding:2px 10px;">
+                            {{ $c['name'] }} <span class="badge badge-warning text-dark ml-1">{{ $c['count'] }}</span>
+                        </button>
+                        @endforeach
+                        @endif
+
+                        @if(isset($lowStockMobileGroups) && $lowStockMobileGroups->count())
+                        <span class="text-muted small font-weight-bold ml-1">Condition:</span>
+                        @foreach($lowStockMobileGroups as $g)
+                        <button type="button" class="btn btn-sm btn-outline-secondary chip-mobile chip-mobile-group"
+                            data-type="group" data-id="{{ $g['id'] }}"
+                            style="border-radius:999px; font-size:0.78em; padding:2px 10px;">
+                            {{ $g['name'] }} <span class="badge badge-secondary ml-1">{{ $g['count'] }}</span>
+                        </button>
+                        @endforeach
+                        @endif
+
+                        <button type="button" id="clearLowStockMobileFilter"
+                            class="btn btn-sm btn-outline-secondary"
+                            style="border-radius:999px; display:none;">
+                            <i class="fa fa-times"></i> Clear
+                        </button>
+
+                        <button id="toggleStockMobileBtn" class="btn btn-sm btn-dark ml-1">
+                            <i class="fa fa-expand mr-1"></i> Expand
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    <div style="overflow:hidden; transition:max-height 0.4s ease;" id="lowStockMobileTableWrapper">
+                        <table class="table table-hover table-bordered mb-0">
+                            <thead style="background:#f8f9fa;">
+                                <tr>
+                                    <th class="text-center" style="width:50px;">#</th>
+                                    <th>Mobile</th>
+                                    <th>Company</th>
+                                    <th>Condition</th>
+                                    <th class="text-center">Min Qty</th>
+                                    <th class="text-center">In Stock</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="low-stock-mobile-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @else
+            <div class="alert alert-success d-flex align-items-center mt-2 mb-2" role="alert">
+                <i class="fa fa-check-circle mr-2" style="font-size:1.2em;"></i>
+                <span>All mobiles are above their minimum quantity.</span>
+            </div>
+            @endif
+
+            <div class="row grouped-multiple-statistics-card">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">
+                                                Rs. {{ number_format($totalMobileCost) }}</h3>
+                                            <p class="sub-heading">Total Mobile Stock Cost</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">
+                                                Rs. {{ number_format($totalSoldMobileAmount) }}</h3>
+                                            <p class="sub-heading">Total Sold Mobile</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">
+                                                Rs. {{ number_format($totalMobileReceivable) }}</h3>
+                                            <p class="sub-heading">Total Receivable (Mobile)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">
+                                                Rs. {{ number_format($totalMobileSalesAmount) }}</h3>
+                                            <p class="sub-heading">Total Mobile Sales</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-1">
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">
+                                                Rs. {{ number_format($todayMobileTotalDebit) }}</h3>
+                                            <p class="sub-heading">Today's Total Debit (Mobile)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6 col-xl-3 col-sm-6 col-12">
+                                    <div
+                                        class="d-flex align-items-start mb-sm-1 mb-xl-0 border-right-blue-grey border-right-lighten-5">
+                                        <div class="stats-amount mr-3">
+                                            <h3 class="heading-text text-bold-600">
+                                                Rs. {{ number_format($todayMobileTotalCredit) }}</h3>
+                                            <p class="sub-heading">Today's Total Credit (Mobile)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-1">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h4 class="card-title mb-0">
+                                Today's Mobile Credit Entries
+                                <span class="badge badge-success ml-1">{{ $allMobileCreditEntries->count() }}</span>
+                            </h4>
+                            <span class="text-bold-600 text-success" style="font-size:1.1em;">
+                                Total: Rs. {{ number_format($allMobileCreditEntries->sum('credit')) }}
+                            </span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-bordered mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Vendor</th>
+                                        <th>Description</th>
+                                        <th>Amount (CR)</th>
+                                        <th>Added By</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($allMobileCreditEntries as $entry)
+                                    <tr>
+                                        <td>{{ $entry->created_at->format('d M Y, h:i A') }}</td>
+                                        <td>{{ optional($entry->vendor)->name ?? '—' }}</td>
+                                        <td>{{ $entry->description ?? '—' }}</td>
+                                        <td class="text-success text-bold-600">Rs. {{ number_format($entry->credit) }}</td>
+                                        <td>{{ optional($entry->creator)->name ?? '—' }}</td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-2">No credit entries found.</td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                                @if($allMobileCreditEntries->count())
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="3" class="text-right">Total</th>
+                                        <th class="text-success">Rs. {{ number_format($allMobileCreditEntries->sum('credit')) }}</th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                                @endif
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif{{-- /hasMobileAccess --}}
+
 
 
 
@@ -433,6 +701,7 @@
 
 </script> --}}
 
+@if(auth()->user()->hasAccessoryAccess() && $lowStockAccessories->count())
 <script>
     // Data from controller
   const LOW_STOCK = @json($lowStockAccessories); // [{id,name,stock,min_qty,company_id,company,group_id,group}]
@@ -540,6 +809,109 @@
     if (LOW_STOCK.length <= 5) { toggleBtn.style.display = 'none'; }
   });
 </script>
+@endif
+
+@if(auth()->user()->hasMobileAccess() && $lowStockMobiles->count())
+<script>
+  const LOW_STOCK_MOBILE = @json($lowStockMobiles);
+  let showingAllMobile = false;
+  let activeFilterMobile = null;
+
+  const tbodyMobile   = document.getElementById('low-stock-mobile-tbody');
+  const wrapperMobile = document.getElementById('lowStockMobileTableWrapper');
+  const toggleBtnMobile = document.getElementById('toggleStockMobileBtn');
+  const clearBtnMobile  = document.getElementById('clearLowStockMobileFilter');
+  const filterBadgeMobile = document.getElementById('lowStockMobileFilterBadge');
+
+  function applyFilterMobile(data) {
+    if (!activeFilterMobile) return data;
+    if (activeFilterMobile.type === 'company') {
+      return data.filter(x => String(x.company_id) === String(activeFilterMobile.id));
+    }
+    if (activeFilterMobile.type === 'group') {
+      return data.filter(x => String(x.group_id) === String(activeFilterMobile.id));
+    }
+    return data;
+  }
+
+  function renderLowStockTableMobile(showAll = false) {
+    tbodyMobile.innerHTML = '';
+
+    let data = applyFilterMobile(LOW_STOCK_MOBILE);
+    let dataToShow = showAll ? data : data.slice(0, 5);
+
+    dataToShow.forEach((item, index) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="text-center text-muted">${index + 1}</td>
+        <td><strong>${item.name}</strong></td>
+        <td>${item.company || '-'}</td>
+        <td>${item.group || '-'}</td>
+        <td class="text-center">${item.min_qty}</td>
+        <td class="text-center"><span class="badge badge-danger" style="font-size:0.95em;">${item.stock}</span></td>
+        <td class="text-center"><span class="badge badge-warning text-dark" style="font-size:0.85em;">Restock Needed</span></td>
+      `;
+      tbodyMobile.appendChild(tr);
+    });
+
+    if (dataToShow.length === 0) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="7" style="text-align:center; padding:10px;">No items match this filter.</td>`;
+      tbodyMobile.appendChild(tr);
+    }
+
+    if (activeFilterMobile) {
+      clearBtnMobile.style.display = '';
+      const label = activeFilterMobile.type === 'company' ? 'Company' : 'Condition';
+      const name = (data[0]?.[activeFilterMobile.type] ?? '').toString();
+      filterBadgeMobile.textContent = `(${label}: ${name})`;
+    } else {
+      clearBtnMobile.style.display = 'none';
+      filterBadgeMobile.textContent = '';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    renderLowStockTableMobile(false);
+
+    const rowHeight = 42;
+    const collapsedHeight = rowHeight * 5 + 44;
+    function recomputeExpandedHeightMobile() {
+      const count = applyFilterMobile(LOW_STOCK_MOBILE).length || 1;
+      return rowHeight * count + 44;
+    }
+
+    wrapperMobile.style.maxHeight = collapsedHeight + 'px';
+
+    toggleBtnMobile.addEventListener('click', () => {
+      showingAllMobile = !showingAllMobile;
+      renderLowStockTableMobile(showingAllMobile);
+      wrapperMobile.style.maxHeight = (showingAllMobile ? recomputeExpandedHeightMobile() : collapsedHeight) + 'px';
+      toggleBtnMobile.innerHTML = showingAllMobile ? '<i class="fa fa-compress mr-1"></i> Collapse' : '<i class="fa fa-expand mr-1"></i> Expand';
+    });
+
+    document.querySelectorAll('.chip-mobile').forEach(chip => {
+      chip.addEventListener('click', () => {
+        activeFilterMobile = { type: chip.dataset.type, id: chip.dataset.id };
+        showingAllMobile = true;
+        renderLowStockTableMobile(true);
+        wrapperMobile.style.maxHeight = recomputeExpandedHeightMobile() + 'px';
+        toggleBtnMobile.innerHTML = '<i class="fa fa-compress mr-1"></i> Collapse';
+      });
+    });
+
+    clearBtnMobile.addEventListener('click', () => {
+      activeFilterMobile = null;
+      showingAllMobile = false;
+      renderLowStockTableMobile(false);
+      wrapperMobile.style.maxHeight = collapsedHeight + 'px';
+      toggleBtnMobile.innerHTML = '<i class="fa fa-expand mr-1"></i> Expand';
+    });
+
+    if (LOW_STOCK_MOBILE.length <= 5) { toggleBtnMobile.style.display = 'none'; }
+  });
+</script>
+@endif
 
 
 
