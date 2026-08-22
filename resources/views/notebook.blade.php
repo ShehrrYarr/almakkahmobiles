@@ -62,6 +62,8 @@
     document.addEventListener('DOMContentLoaded', function () {
         var initialValues = @json($values);
         var initialStyle = @json($style && count($style) ? $style : (object) []);
+        var initialColumns = @json($columns);
+        var initialRows = @json($rows);
         var csrf = '{{ csrf_token() }}';
         var saveUrl = '{{ route('notebook.save') }}';
         var statusEl = document.getElementById('notebook-status');
@@ -86,6 +88,8 @@
         var options = {
             data: (initialValues && initialValues.length) ? initialValues : undefined,
             style: initialStyle,
+            columns: (initialColumns && initialColumns.length) ? initialColumns : undefined,
+            rows: (initialRows && initialRows.length) ? initialRows : undefined,
             minDimensions: [minCols, minRows],
             tableOverflow: true,
             tableWidth: '100%',
@@ -95,11 +99,14 @@
             allowDeleteRow: true,
             allowDeleteColumn: true,
             columnSorting: false,
+            rowResize: true,
             onchange: function () { scheduleSave(); },
             oninsertrow: function () { scheduleSave(); },
             oninsertcolumn: function () { scheduleSave(); },
             ondeleterow: function () { scheduleSave(); },
             ondeletecolumn: function () { scheduleSave(); },
+            onresizerow: function () { scheduleSave(); },
+            onresizecolumn: function () { scheduleSave(); },
             onselection: function (instance, x1, y1, x2, y2) {
                 lastSelection = [x1, y1, x2, y2];
             },
@@ -145,6 +152,8 @@
         function doSave() {
             var grid = sheet.getData();
             var style = sheet.getStyle();
+            var columns = (sheet.options.columns || []).map(function (c) { return { width: c.width }; });
+            var rows = (sheet.options.rows || []).map(function (r) { return { height: r.height }; });
             fetch(saveUrl, {
                 method: 'POST',
                 headers: {
@@ -152,7 +161,7 @@
                     'X-CSRF-TOKEN': csrf,
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify({ data: grid, style: style }),
+                body: JSON.stringify({ data: grid, style: style, columns: columns, rows: rows }),
             })
             .then(function (res) { return res.json(); })
             .then(function (json) {
