@@ -155,7 +155,7 @@
                 </div>
 
                 <div class="card-body p-0">
-                    <div style="overflow:hidden; transition:max-height 0.4s ease;" id="lowStockTableWrapper">
+                    <div style="overflow-y:auto; transition:max-height 0.4s ease;" id="lowStockTableWrapper">
                         <table class="table table-hover table-bordered mb-0">
                             <thead style="background:#f8f9fa;">
                                 <tr>
@@ -638,24 +638,23 @@
     }
   }
 
-  // Expand/Collapse animation
+  // Expand/Collapse animation — measure the wrapper's actual rendered
+  // height after each render rather than estimating it from a hardcoded
+  // per-row pixel height, which undercounted for larger groups (e.g. a
+  // 59-row filter showing only ~56 rows before the wrapper silently
+  // clipped the rest via overflow:hidden).
+  function updateWrapperHeight() {
+    wrapper.style.maxHeight = wrapper.scrollHeight + 'px';
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     renderLowStockTable(false);
-
-    const rowHeight = 42; // tweak if needed
-    const collapsedHeight = rowHeight * 5 + 44; // 5 rows + header
-    // dynamic expanded height based on filtered set
-    function recomputeExpandedHeight() {
-      const count = applyFilter(LOW_STOCK).length || 1;
-      return rowHeight * count + 44;
-    }
-
-    wrapper.style.maxHeight = collapsedHeight + 'px';
+    updateWrapperHeight();
 
     toggleBtn.addEventListener('click', () => {
       showingAll = !showingAll;
       renderLowStockTable(showingAll);
-      wrapper.style.maxHeight = (showingAll ? recomputeExpandedHeight() : collapsedHeight) + 'px';
+      updateWrapperHeight();
       toggleBtn.innerHTML = showingAll ? '<i class="fa fa-compress mr-1"></i> Collapse' : '<i class="fa fa-expand mr-1"></i> Expand';
     });
 
@@ -665,7 +664,7 @@
         activeFilter = { type: chip.dataset.type, id: chip.dataset.id };
         showingAll = true; // auto-expand when filtering
         renderLowStockTable(true);
-        wrapper.style.maxHeight = recomputeExpandedHeight() + 'px';
+        updateWrapperHeight();
         toggleBtn.innerHTML = '<i class="fa fa-compress mr-1"></i> Collapse';
       });
     });
@@ -675,7 +674,7 @@
       activeFilter = null;
       showingAll = false;
       renderLowStockTable(false);
-      wrapper.style.maxHeight = collapsedHeight + 'px';
+      updateWrapperHeight();
       toggleBtn.innerHTML = '<i class="fa fa-expand mr-1"></i> Expand';
     });
 
