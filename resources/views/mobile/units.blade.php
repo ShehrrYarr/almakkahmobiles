@@ -99,26 +99,59 @@
                             <thead>
                                 <tr>
                                     <th>Purchase Date</th>
-                                    <th>Photos</th>
+                                    <th>Sell</th>
                                     <th>Name</th>
                                     <th>IMEI</th>
                                     <th>IMEI 2</th>
+                                    <th>Selling Price</th>
+                                    <th>Purchase Price</th>
                                     <th>Storage</th>
                                     <th>Color</th>
                                     <th>PTA</th>
                                     <th>Box</th>
                                     <th>Battery</th>
-                                    <th>Purchase Price</th>
-                                    <th>Selling Price</th>
                                     <th>Bought From</th>
                                     <th>Status</th>
-                                    <th>Action</th>
+                                    <th>Photos</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($units as $unit)
                                 <tr>
                                     <td>{{ \Carbon\Carbon::parse($unit->purchase_date)->format('d M Y') }}</td>
+                                    <td>
+                                        @if($unit->status === 'in_stock')
+                                        <a href="{{ route('mobile.pos', ['add_unit' => $unit->id]) }}" class="btn btn-sm btn-success">
+                                            <i class="fa fa-cart-plus mr-1"></i> Sell
+                                        </a>
+                                        @else
+                                        <span class="text-muted">—</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $unit->name }}</td>
+                                    <td>{{ $unit->imei }}</td>
+                                    <td>{{ $unit->imei2 ?: '-' }}</td>
+                                    <td>Rs. {{ number_format($unit->selling_price, 2) }}</td>
+                                    <td>
+                                        <span class="purchase-price-mask" id="pp-mask-{{ $unit->id }}">••••••</span>
+                                        <span class="purchase-price-value" id="pp-value-{{ $unit->id }}" style="display:none;">Rs. {{ number_format($unit->purchase_price, 2) }}</span>
+                                        <button type="button" class="btn btn-sm btn-link p-0 ml-1" onclick="togglePurchasePrice({{ $unit->id }})" title="Show/hide purchase price">
+                                            <i class="fa fa-eye" id="pp-icon-{{ $unit->id }}"></i>
+                                        </button>
+                                    </td>
+                                    <td>{{ $unit->storage ?: '-' }}</td>
+                                    <td>{{ $unit->color ?: '-' }}</td>
+                                    <td>{{ $unit->pta_status }}</td>
+                                    <td>{{ $unit->has_box ? 'Yes' : 'No' }}</td>
+                                    <td>{{ $unit->battery ?: '-' }}{{ $unit->battery_cycle ? ' ('.$unit->battery_cycle.' cycles)' : '' }}</td>
+                                    <td>{{ $unit->seller_name }}{{ $unit->seller_phone ? ' ('.$unit->seller_phone.')' : '' }}</td>
+                                    <td>
+                                        @if($unit->status === 'sold')
+                                        <span class="badge badge-secondary">Sold</span>
+                                        @else
+                                        <span class="badge badge-success">In Stock</span>
+                                        @endif
+                                    </td>
                                     <td>
                                         @if($unit->images->isNotEmpty())
                                         @php
@@ -138,33 +171,6 @@
                                         </div>
                                         @else
                                         <span class="text-muted">No photos</span>
-                                        @endif
-                                    </td>
-                                    <td>{{ $unit->name }}</td>
-                                    <td>{{ $unit->imei }}</td>
-                                    <td>{{ $unit->imei2 ?: '-' }}</td>
-                                    <td>{{ $unit->storage ?: '-' }}</td>
-                                    <td>{{ $unit->color ?: '-' }}</td>
-                                    <td>{{ $unit->pta_status }}</td>
-                                    <td>{{ $unit->has_box ? 'Yes' : 'No' }}</td>
-                                    <td>{{ $unit->battery ?: '-' }}{{ $unit->battery_cycle ? ' ('.$unit->battery_cycle.' cycles)' : '' }}</td>
-                                    <td>Rs. {{ number_format($unit->purchase_price, 2) }}</td>
-                                    <td>Rs. {{ number_format($unit->selling_price, 2) }}</td>
-                                    <td>{{ $unit->seller_name }}{{ $unit->seller_phone ? ' ('.$unit->seller_phone.')' : '' }}</td>
-                                    <td>
-                                        @if($unit->status === 'sold')
-                                        <span class="badge badge-secondary">Sold</span>
-                                        @else
-                                        <span class="badge badge-success">In Stock</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if($unit->status === 'in_stock')
-                                        <a href="{{ route('mobile.pos', ['add_unit' => $unit->id]) }}" class="btn btn-sm btn-success">
-                                            <i class="fa fa-cart-plus mr-1"></i> Sell
-                                        </a>
-                                        @else
-                                        <span class="text-muted">—</span>
                                         @endif
                                     </td>
                                 </tr>
@@ -236,6 +242,17 @@
         if (e.key === 'ArrowLeft') galleryPrev();
         if (e.key === 'ArrowRight') galleryNext();
     });
+
+    function togglePurchasePrice(id) {
+        const maskEl = document.getElementById('pp-mask-' + id);
+        const valueEl = document.getElementById('pp-value-' + id);
+        const iconEl = document.getElementById('pp-icon-' + id);
+        const revealing = maskEl.style.display !== 'none';
+        maskEl.style.display = revealing ? 'none' : '';
+        valueEl.style.display = revealing ? '' : 'none';
+        iconEl.classList.toggle('fa-eye', !revealing);
+        iconEl.classList.toggle('fa-eye-slash', revealing);
+    }
 
     $(document).ready(function () {
         $('#mobileUnitsTable').DataTable({ order: [[0, 'desc']] });
