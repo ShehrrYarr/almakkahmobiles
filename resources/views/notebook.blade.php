@@ -88,8 +88,6 @@
         var options = {
             data: (initialValues && initialValues.length) ? initialValues : undefined,
             style: initialStyle,
-            columns: (initialColumns && initialColumns.length) ? initialColumns : undefined,
-            rows: (initialRows && initialRows.length) ? initialRows : undefined,
             minDimensions: [minCols, minRows],
             tableOverflow: true,
             tableWidth: '100%',
@@ -111,6 +109,13 @@
                 lastSelection = [x1, y1, x2, y2];
             },
         };
+
+        // jspreadsheet-ce's init crashes if `columns`/`rows` are present in
+        // the options object at all with an undefined value (unlike `data`,
+        // which tolerates it) — so only set these keys when there's real
+        // saved sizing to restore.
+        if (initialColumns && initialColumns.length) { options.columns = initialColumns; }
+        if (initialRows && initialRows.length) { options.rows = initialRows; }
 
         var sheet = jspreadsheet(sheetEl, options);
 
