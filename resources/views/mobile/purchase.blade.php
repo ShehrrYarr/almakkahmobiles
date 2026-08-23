@@ -42,7 +42,8 @@
                             </div>
                             <div class="col-md-6 mb-2">
                                 <label class="form-label">CNIC</label>
-                                <input type="text" class="form-control" name="seller_cnic" value="{{ old('seller_cnic') }}">
+                                <input type="text" class="form-control" name="seller_cnic" value="{{ old('seller_cnic') }}"
+                                    maxlength="13" pattern="\d{13}" inputmode="numeric" title="CNIC must be exactly 13 digits">
                             </div>
                             <div class="col-md-6 mb-2">
                                 <label class="form-label">Phone Number</label>
@@ -70,11 +71,13 @@
                             </div>
                             <div class="col-md-3 mb-2">
                                 <label class="form-label">IMEI</label>
-                                <input type="text" class="form-control" name="imei" value="{{ old('imei') }}" required>
+                                <input type="text" class="form-control" name="imei" value="{{ old('imei') }}"
+                                    maxlength="15" pattern="\d{15}" inputmode="numeric" title="IMEI must be exactly 15 digits" required>
                             </div>
                             <div class="col-md-3 mb-2">
                                 <label class="form-label">IMEI 2 (Optional)</label>
-                                <input type="text" class="form-control" name="imei2" value="{{ old('imei2') }}">
+                                <input type="text" class="form-control" name="imei2" value="{{ old('imei2') }}"
+                                    maxlength="15" pattern="\d{15}" inputmode="numeric" title="IMEI must be exactly 15 digits">
                             </div>
 
                             <div class="col-md-3 mb-2">

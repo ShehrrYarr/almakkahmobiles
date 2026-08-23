@@ -27,14 +27,14 @@ class MobilePurchaseController extends Controller
     {
         $data = $request->validate([
             'seller_name'        => 'required|string|max:255',
-            'seller_cnic'        => 'nullable|string|max:50',
+            'seller_cnic'        => 'nullable|digits:13',
             'seller_phone'       => 'nullable|string|max:20',
             'seller_address'     => 'nullable|string|max:500',
             'seller_description' => 'nullable|string',
 
             'name'           => 'required|string|max:255',
-            'imei'           => 'required|string|max:32|unique:mobile_units,imei',
-            'imei2'          => 'nullable|string|max:32|different:imei|unique:mobile_units,imei2',
+            'imei'           => 'required|digits:15|unique:mobile_units,imei',
+            'imei2'          => 'nullable|digits:15|different:imei|unique:mobile_units,imei2',
             'storage'        => 'nullable|string|max:50',
             'color'          => 'nullable|string|max:50',
             'battery'        => 'nullable|string|max:50',
