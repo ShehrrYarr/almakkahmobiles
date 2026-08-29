@@ -12,12 +12,18 @@ class NotebookController extends Controller
         $this->middleware('auth');
     }
 
-    public function index()
+    public function index($id = null)
     {
-        $notebook = Notebook::first();
+        $notebooks = Notebook::orderBy('id')->get(['id', 'name']);
+
+        $targetId = $id ?: optional($notebooks->first())->id;
+        $notebook = $targetId ? Notebook::find($targetId) : null;
+
         $stored = $notebook->data ?? [];
 
         return view('notebook', [
+            'notebooks' => $notebooks,
+            'activeId' => $notebook->id ?? null,
             'values' => $stored['values'] ?? [],
             'style' => $stored['style'] ?? [],
             'columns' => $stored['columns'] ?? [],
@@ -27,8 +33,13 @@ class NotebookController extends Controller
         ]);
     }
 
-    public function save(Request $request)
+    public function save(Request $request, $id)
     {
+        $notebook = Notebook::find($id);
+        if (!$notebook) {
+            return response()->json(['success' => false, 'message' => 'Notebook not found.'], 404);
+        }
+
         $validated = $request->validate([
             'data' => 'required|array',
             'style' => 'nullable|array',
@@ -36,7 +47,6 @@ class NotebookController extends Controller
             'rows' => 'nullable|array',
         ]);
 
-        $notebook = Notebook::first() ?? new Notebook();
         $notebook->data = [
             'values'  => $validated['data'],
             'style'   => $validated['style'] ?? [],
@@ -51,5 +61,53 @@ class NotebookController extends Controller
             'updated_at' => $notebook->updated_at->format('d M Y, H:i:s'),
             'updated_by' => auth()->user()->name,
         ]);
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $notebook = Notebook::create([
+            'name' => $data['name'],
+            'data' => ['values' => [], 'style' => [], 'columns' => [], 'rows' => []],
+            'updated_by' => auth()->id(),
+        ]);
+
+        return response()->json(['success' => true, 'id' => $notebook->id, 'name' => $notebook->name]);
+    }
+
+    public function rename(Request $request, $id)
+    {
+        $notebook = Notebook::find($id);
+        if (!$notebook) {
+            return response()->json(['success' => false, 'message' => 'Notebook not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $notebook->name = $data['name'];
+        $notebook->save();
+
+        return response()->json(['success' => true, 'name' => $notebook->name]);
+    }
+
+    public function destroy($id)
+    {
+        $notebook = Notebook::find($id);
+        if (!$notebook) {
+            return response()->json(['success' => false, 'message' => 'Notebook not found.'], 404);
+        }
+
+        if (Notebook::count() <= 1) {
+            return response()->json(['success' => false, 'message' => 'Cannot delete the only remaining notebook.'], 422);
+        }
+
+        $notebook->delete();
+
+        return response()->json(['success' => true]);
     }
 }

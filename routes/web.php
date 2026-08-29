@@ -174,9 +174,13 @@ Route::middleware(['auth', 'login.time.restrict', 'permission:manage_inventory',
     Route::post('/batches', [AccessoryBatchController::class, 'store'])->name('batches.store');
 });
 
-//Notebook Routes (shared, equal access for admin & salesman)
-Route::get('/notebook', [\App\Http\Controllers\NotebookController::class, 'index'])->name('notebook.index')->middleware(['auth', 'login.time.restrict']);
-Route::post('/notebook', [\App\Http\Controllers\NotebookController::class, 'save'])->name('notebook.save')->middleware(['auth', 'login.time.restrict']);
+//Notebook Routes — viewing/editing cells is shared, equal access for admin &
+//salesman; creating/renaming/deleting notebooks is admin-only.
+Route::get('/notebook/{id?}', [\App\Http\Controllers\NotebookController::class, 'index'])->name('notebook.index')->middleware(['auth', 'login.time.restrict']);
+Route::post('/notebook/{id}/save', [\App\Http\Controllers\NotebookController::class, 'save'])->name('notebook.save')->middleware(['auth', 'login.time.restrict']);
+Route::post('/notebook', [\App\Http\Controllers\NotebookController::class, 'store'])->name('notebook.store')->middleware(['auth', 'login.time.restrict', 'role:admin']);
+Route::put('/notebook/{id}/rename', [\App\Http\Controllers\NotebookController::class, 'rename'])->name('notebook.rename')->middleware(['auth', 'login.time.restrict', 'role:admin']);
+Route::delete('/notebook/{id}', [\App\Http\Controllers\NotebookController::class, 'destroy'])->name('notebook.destroy')->middleware(['auth', 'login.time.restrict', 'role:admin']);
 
 
 //Sales Routes

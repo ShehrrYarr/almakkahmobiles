@@ -20,6 +20,39 @@
     #notebook-status.error {
         color: #dc3545;
     }
+    #notebook-tabs {
+        border-bottom: 1px solid #eee;
+    }
+    .notebook-tab {
+        background: #f1f3f5;
+        border-radius: 8px 8px 0 0;
+        padding: 6px 10px;
+        gap: 6px;
+    }
+    .notebook-tab.active {
+        background: #556ee6;
+    }
+    .notebook-tab.active .notebook-tab-link {
+        color: #fff;
+        font-weight: 600;
+    }
+    .notebook-tab-link {
+        color: #495057;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .notebook-tab-rename, .notebook-tab-delete {
+        cursor: pointer;
+        color: #868e96;
+        font-size: .85em;
+    }
+    .notebook-tab.active .notebook-tab-rename,
+    .notebook-tab.active .notebook-tab-delete {
+        color: #e9ecef;
+    }
+    .notebook-tab-rename:hover, .notebook-tab-delete:hover {
+        color: #212529;
+    }
 </style>
 
 <div class="app-content content">
@@ -32,6 +65,7 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap" style="gap:10px;">
                     <h4 class="mb-0 font-weight-bold"><i class="fa fa-book text-secondary mr-1"></i> Notebook</h4>
+                    @if($activeId)
                     <div class="d-flex align-items-center" style="gap:10px;">
                         <button type="button" class="btn btn-sm btn-outline-secondary" id="notebook-add-row">
                             <i class="fa fa-plus mr-1"></i> Add Row
@@ -47,10 +81,44 @@
                             @endif
                         </span>
                     </div>
+                    @endif
                 </div>
+
+                @if($notebooks->isNotEmpty())
+                <div class="px-3 pt-2 d-flex align-items-end flex-wrap" style="gap:6px;" id="notebook-tabs">
+                    @foreach($notebooks as $nb)
+                    <div class="d-flex align-items-center notebook-tab {{ $nb->id == $activeId ? 'active' : '' }}">
+                        <a href="{{ route('notebook.index', $nb->id) }}" class="notebook-tab-link">{{ $nb->name }}</a>
+                        @if(auth()->user()->isAdmin())
+                        <i class="fa fa-pencil notebook-tab-rename" data-id="{{ $nb->id }}" data-name="{{ $nb->name }}" title="Rename notebook"></i>
+                        <i class="fa fa-times notebook-tab-delete" data-id="{{ $nb->id }}" title="Delete notebook"></i>
+                        @endif
+                    </div>
+                    @endforeach
+                    @if(auth()->user()->isAdmin())
+                    <button type="button" class="btn btn-sm btn-light" id="notebook-add-tab" title="Add Notebook" style="border-radius:8px 8px 0 0;">
+                        <i class="fa fa-plus"></i>
+                    </button>
+                    @endif
+                </div>
+                @endif
+
                 <div class="card-body">
+                    @if($notebooks->isEmpty())
+                    <div class="text-center text-muted py-5">
+                        <p>No notebooks yet.</p>
+                        @if(auth()->user()->isAdmin())
+                        <button type="button" class="btn btn-primary" id="notebook-add-tab-empty">
+                            <i class="fa fa-plus mr-1"></i> Create Notebook
+                        </button>
+                        @else
+                        <p class="small">Ask an admin to create one.</p>
+                        @endif
+                    </div>
+                    @else
                     <p class="text-muted small mb-2">Shared by everyone &mdash; anything typed here is visible to all users after they refresh the page. Right-click a cell for more options (insert/delete rows &amp; columns). Select a cell and press <strong>Ctrl+B</strong> to bold it.</p>
                     <div id="notebook-sheet"></div>
+                    @endif
                 </div>
             </div>
 
@@ -58,14 +126,143 @@
     </div>
 </div>
 
+{{-- Add Notebook Modal --}}
+<div class="modal fade" id="addNotebookModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Notebook</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-1">
+                    <label class="form-label">Notebook Name</label>
+                    <input type="text" class="form-control" id="add-notebook-name" maxlength="255">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="add-notebook-submit">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- Rename Notebook Modal --}}
+<div class="modal fade" id="renameNotebookModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Rename Notebook</h5>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="rename-notebook-id">
+                <div class="mb-1">
+                    <label class="form-label">Notebook Name</label>
+                    <input type="text" class="form-control" id="rename-notebook-name" maxlength="255">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-warning" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="rename-notebook-submit">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    (function () {
+        var csrf = '{{ csrf_token() }}';
+
+        function showAddModal() { $('#add-notebook-name').val(''); $('#addNotebookModal').modal('show'); }
+        var addBtn = document.getElementById('notebook-add-tab');
+        var addBtnEmpty = document.getElementById('notebook-add-tab-empty');
+        if (addBtn) addBtn.addEventListener('click', showAddModal);
+        if (addBtnEmpty) addBtnEmpty.addEventListener('click', showAddModal);
+
+        var addSubmitBtn = document.getElementById('add-notebook-submit');
+        if (addSubmitBtn) {
+            addSubmitBtn.addEventListener('click', function () {
+                var name = document.getElementById('add-notebook-name').value.trim();
+                if (!name) { alert('Please enter a name.'); return; }
+                fetch('{{ route('notebook.store') }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                    body: JSON.stringify({ name: name }),
+                })
+                .then(function (res) { return res.json(); })
+                .then(function (json) {
+                    if (json.success) {
+                        window.location = '{{ url('/notebook') }}/' + json.id;
+                    } else {
+                        alert(json.message || 'Failed to create notebook.');
+                    }
+                })
+                .catch(function () { alert('Failed to create notebook — check your connection.'); });
+            });
+        }
+
+        document.querySelectorAll('.notebook-tab-rename').forEach(function (el) {
+            el.addEventListener('click', function () {
+                document.getElementById('rename-notebook-id').value = el.dataset.id;
+                document.getElementById('rename-notebook-name').value = el.dataset.name;
+                $('#renameNotebookModal').modal('show');
+            });
+        });
+
+        var renameSubmitBtn = document.getElementById('rename-notebook-submit');
+        if (renameSubmitBtn) {
+            renameSubmitBtn.addEventListener('click', function () {
+                var id = document.getElementById('rename-notebook-id').value;
+                var name = document.getElementById('rename-notebook-name').value.trim();
+                if (!name) { alert('Please enter a name.'); return; }
+                fetch('{{ url('/notebook') }}/' + id + '/rename', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                    body: JSON.stringify({ name: name }),
+                })
+                .then(function (res) { return res.json(); })
+                .then(function (json) {
+                    if (json.success) {
+                        window.location.reload();
+                    } else {
+                        alert(json.message || 'Failed to rename notebook.');
+                    }
+                })
+                .catch(function () { alert('Failed to rename notebook — check your connection.'); });
+            });
+        }
+
+        document.querySelectorAll('.notebook-tab-delete').forEach(function (el) {
+            el.addEventListener('click', function () {
+                if (!confirm('Delete this notebook? This cannot be undone.')) return;
+                var id = el.dataset.id;
+                fetch('{{ url('/notebook') }}/' + id, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                })
+                .then(function (res) { return res.json(); })
+                .then(function (json) {
+                    if (json.success) {
+                        window.location = '{{ url('/notebook') }}';
+                    } else {
+                        alert(json.message || 'Failed to delete notebook.');
+                    }
+                })
+                .catch(function () { alert('Failed to delete notebook — check your connection.'); });
+            });
+        });
+    })();
+
+    @if($activeId)
     document.addEventListener('DOMContentLoaded', function () {
         var initialValues = @json($values);
         var initialStyle = @json($style && count($style) ? $style : (object) []);
         var initialColumns = @json($columns);
         var initialRows = @json($rows);
         var csrf = '{{ csrf_token() }}';
-        var saveUrl = '{{ route('notebook.save') }}';
+        var saveUrl = '{{ route('notebook.save', $activeId) }}';
         var statusEl = document.getElementById('notebook-status');
         var sheetEl = document.getElementById('notebook-sheet');
 
@@ -188,6 +385,7 @@
             scheduleSave();
         });
     });
+    @endif
 </script>
 
 @endsection

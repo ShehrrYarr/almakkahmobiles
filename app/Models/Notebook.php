@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Notebook extends Model
 {
-    protected $fillable = ['data', 'updated_by'];
+    protected $fillable = ['name', 'data', 'updated_by'];
 
     protected $casts = [
         'data' => 'array',
