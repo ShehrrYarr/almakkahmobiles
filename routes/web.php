@@ -20,6 +20,7 @@ use App\Http\Controllers\SalesLiveController;
 use App\Http\Controllers\MobileBankController;
 use App\Http\Controllers\MobileController;
 use App\Http\Controllers\MobilePurchaseController;
+use App\Http\Controllers\MobileBuybackController;
 use App\Http\Controllers\MobileSaleController;
 use App\Http\Controllers\MobileHeldOrderController;
 use App\Http\Controllers\MobileSaleReturnController;
@@ -336,6 +337,12 @@ Route::middleware(['auth', 'login.time.restrict', 'shop.context'])->group(functi
     Route::get('/mobile/purchase', [MobilePurchaseController::class, 'create'])->name('mobile.purchase.create');
     Route::post('/mobile/purchase', [MobilePurchaseController::class, 'store'])->name('mobile.purchase.store');
     Route::get('/mobile/purchase/report', [MobilePurchaseController::class, 'report'])->name('mobile.purchase.report');
+
+    // Buyback
+    Route::get('/mobile/buyback', [MobileBuybackController::class, 'create'])->name('mobile.buyback.create');
+    Route::get('/mobile/buyback/search', [MobileBuybackController::class, 'search'])->name('mobile.buyback.search');
+    Route::post('/mobile/buyback', [MobileBuybackController::class, 'store'])->name('mobile.buyback.store');
+    Route::get('/mobile/buyback/report', [MobileBuybackController::class, 'report'])->name('mobile.buyback.report');
 
     // POS
     Route::get('/mobile/pos', [MobileSaleController::class, 'pos'])->name('mobile.pos');

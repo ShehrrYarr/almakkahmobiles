@@ -32,4 +32,14 @@ class MobileUnit extends Model
     {
         return $this->hasMany(MobileImage::class);
     }
+
+    public function saleItems()
+    {
+        return $this->hasMany(MobileSaleItem::class, 'mobile_unit_id');
+    }
+
+    public function buybacks()
+    {
+        return $this->hasMany(MobileBuyback::class, 'mobile_unit_id');
+    }
 }

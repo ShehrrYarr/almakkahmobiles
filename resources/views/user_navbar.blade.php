@@ -295,6 +295,14 @@
                                                                 class="menu-item" href="/mobile/purchase/report"
                                                                 data-i18n="1 columns">Purchase Report</a>
                                                 </li>
+                                                <li class="@if (\Request::is('mobile/buyback')) active @endif"><a
+                                                                class="menu-item" href="/mobile/buyback"
+                                                                data-i18n="1 columns">Buyback Mobile</a>
+                                                </li>
+                                                <li class="@if (\Request::is('mobile/buyback/report')) active @endif"><a
+                                                                class="menu-item" href="/mobile/buyback/report"
+                                                                data-i18n="1 columns">Buyback Report</a>
+                                                </li>
                                         </ul>
                                 </li>
                                 @endif
